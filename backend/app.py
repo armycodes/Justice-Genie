@@ -39,6 +39,16 @@ from pytz import timezone,utc
 from dotenv import load_dotenv
 import logging
 from werkzeug.middleware.proxy_fix import ProxyFix
+import cloudinary
+import cloudinary.uploader
+
+# --- 1. Cloudinary Config ---
+cloudinary.config(
+    cloud_name="dggciuh9l",
+    api_key="891663783567481",
+    api_secret="LQY5uCEGCGnI3cSKUflKrdeUtAc",
+    secure=True
+)
 
 load_dotenv()
 IST = timezone('Asia/Kolkata')
@@ -88,11 +98,9 @@ collab_collection = db['collaborations']
 leaderboard_collection = db['leaderboard']
 chats_collection = db["chats"]  # New chat collection
 translator = Translator()
-UPLOAD_FOLDER = os.path.join(os.getcwd(), 'frontend/public/pdfs')
-# UPLOAD_FOLDER = os.path.join(os.getcwd(), 'backend', 'images')
-BOOKS_FOLDER = os.path.join(os.getcwd(), 'images')
+
+
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
-UPLOAD_FOLDER = './uploaded_images'
 
 # 🔹 Global pyttsx3 engine instance
 engine = pyttsx3.init()
@@ -183,38 +191,29 @@ def get_books():
 
 @app.route('/api/books/<book_id>/<action>', methods=['GET'])
 def serve_book(book_id, action):
-    """Serve book for viewing or downloading based on action."""
+    """Serve book for viewing or downloading (via Cloudinary)."""
     book = books_collection.find_one({'_id': ObjectId(book_id)})
     if not book:
         return jsonify({'error': 'Book not found'}), 404
 
-    file_path = book.get('file_path')
-    if not file_path:
+    file_url = book.get('file_path')  # Now a Cloudinary URL
+    if not file_url:
         return jsonify({'error': 'File path not specified'}), 400
 
-    abs_path = os.path.join(BOOKS_FOLDER, file_path)
-    print("Looking for file at:", abs_path)
-
-    if not os.path.exists(abs_path):
-        return jsonify({'error': 'File not found on server'}), 404
-
+    # Update stats in DB
+    update_fields = {'$set': {'updated_at': datetime.utcnow()}}
     if action == 'download':
-        books_collection.update_one(
-            {'_id': ObjectId(book_id)},
-            {'$inc': {'downloads': 1}, '$set': {'updated_at': datetime.utcnow()}}
-        )
-        return send_from_directory(directory=BOOKS_FOLDER, path=file_path, as_attachment=True)
-    
+        update_fields['$inc'] = {'downloads': 1}
     elif action == 'view':
-        books_collection.update_one(
-            {'_id': ObjectId(book_id)},
-            {'$inc': {'views': 1}, '$set': {'updated_at': datetime.utcnow()}}
-        )
-        response = send_from_directory(directory=BOOKS_FOLDER, path=file_path, as_attachment=False)
-        response.headers['Content-Type'] = 'application/pdf'
-        return response
+        update_fields['$inc'] = {'views': 1}
+    else:
+        return jsonify({'error': 'Invalid action'}), 400
 
-    return jsonify({'error': 'Invalid action'}), 400
+    books_collection.update_one({'_id': ObjectId(book_id)}, update_fields)
+
+    # Just redirect user to Cloudinary file
+    return redirect(file_url)
+
 
 
 
@@ -1236,20 +1235,11 @@ def chat():
         app.logger.exception(f'Error generating content: {e}')
         return jsonify({'error': 'There was an error processing your request.'}), 500
 
-# Profile Picture Upload Endpoint
-if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-
 
 
 # Helper Functions
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 
 @app.route('/api/update_profile_picture', methods=['POST'])
@@ -1262,53 +1252,38 @@ def update_profile_picture():
         return jsonify({'message': 'No file part'}), 400
 
     file = request.files['profile_picture']
-
     if file.filename == '':
         return jsonify({'message': 'No selected file'}), 400
 
     if not allowed_file(file.filename):
         return jsonify({'message': 'Invalid file type'}), 400
 
-    # Generate unique filename
-    original_filename = secure_filename(file.filename)
-    file_ext = os.path.splitext(original_filename)[1].lower()
-    unique_filename = f"{uuid.uuid4().hex}{file_ext}"
-    upload_folder = app.config['UPLOAD_FOLDER']
-    os.makedirs(upload_folder, exist_ok=True)
-    file_path = os.path.join(upload_folder, unique_filename)
-
     try:
-        # Process image with Pillow
-        image = Image.open(file.stream)
-        max_size = (500, 500)
-        image.thumbnail(max_size)
-
-        if image.mode in ("RGBA", "P"):
-            image = image.convert("RGB")
-
-        image.save(file_path, format="JPEG", quality=85)
-
-        # Remove old profile picture if not default
-        user = users_collection.find_one({'username': username})
-        old_picture = user.get('profile_picture')
-
-        if old_picture and old_picture != '/uploaded_images/default.jpg':
-            old_file_path = os.path.join(app.root_path, old_picture.lstrip('/'))
-            if os.path.exists(old_file_path):
-                os.remove(old_file_path)
-
-        # Update user's profile picture path
-        new_picture_path = f'/uploaded_images/{unique_filename}'
-        users_collection.update_one(
-            {'username': username},
-            {'$set': {'profile_picture': new_picture_path}}
+        # Upload to Cloudinary
+        result = cloudinary.uploader.upload(
+            file,
+            folder='profile_pics',
+            transformation=[{'width': 500, 'height': 500, 'crop': 'limit'}]
         )
 
-        return jsonify({'message': 'Profile picture updated!', 'file_path': new_picture_path})
+        # Remove old profile pic from Cloudinary if exists
+        user = users_collection.find_one({'username': username})
+        old_pic = user.get('profile_picture')
+        if old_pic and "res.cloudinary.com" in old_pic:
+            public_id = old_pic.split('/')[-1].split('.')[0]
+            cloudinary.uploader.destroy(f'profile_pics/{public_id}')
+
+        # Save new Cloudinary URL in DB
+        users_collection.update_one(
+            {'username': username},
+            {'$set': {'profile_picture': result['secure_url']}}
+        )
+
+        return jsonify({'message': 'Profile picture updated!', 'file_path': result['secure_url']})
 
     except Exception as e:
-        return jsonify({'message': 'Error processing image', 'error': str(e)}), 500
-    
+        return jsonify({'message': 'Error uploading image', 'error': str(e)}), 500
+
     
 @app.route('/api/remove_profile_picture', methods=['POST'])
 def remove_profile_picture():
@@ -1320,21 +1295,28 @@ def remove_profile_picture():
     if not user:
         return jsonify({'message': 'User not found'}), 404
 
-    profile_pic_path = user.get('profile_picture')
-    if profile_pic_path:
-        full_path = '.' + profile_pic_path  # Convert to relative local path
-        if os.path.exists(full_path):
-            os.remove(full_path)
+    profile_pic_url = user.get('profile_picture')
+    
+    try:
+        # If it’s a Cloudinary URL, delete the image from Cloudinary
+        if profile_pic_url and "res.cloudinary.com" in profile_pic_url:
+            # Extract public_id from URL
+            # Example: https://res.cloudinary.com/<cloud>/image/upload/v12345/profile_pics/abcd1234.jpg
+            public_id = '/'.join(profile_pic_url.split('/')[-2:]).split('.')[0]  
+            cloudinary.uploader.destroy(f"profile_pics/{public_id}")
 
-    users_collection.update_one({'username': username}, {'$unset': {'profile_picture': ""}})
+        # Remove profile_picture field from DB
+        users_collection.update_one(
+            {'username': username},
+            {'$unset': {'profile_picture': ""}}
+        )
 
-    return jsonify({'message': 'Profile picture removed successfully!'})
+        return jsonify({'message': 'Profile picture removed successfully!'})
+
+    except Exception as e:
+        return jsonify({'message': 'Error removing profile picture', 'error': str(e)}), 500
 
 
-# Route to serve uploaded files
-@app.route('/uploaded_images/<filename>')
-def uploaded_file(filename):
-    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 
 # Quiz related functions
@@ -1871,6 +1853,8 @@ def extract_probabilities(text):
         return {"win": win, "loss": loss, "need_more_info": need_more_info}
     except Exception as e:
         return {"error": f"Failed to extract probabilities: {str(e)}"}
+    
+DEFAULT_PROFILE_PIC = "https://res.cloudinary.com/<your_cloud_name>/image/upload/v1757482000/profile_pics/default.jpg"
 
 @app.route('/api/admin/users', methods=['GET'])
 def get_users():
@@ -1889,7 +1873,7 @@ def get_users():
             "email": user.get('email'),
             "phone": user.get('phone', 'Not provided'),
             "dob": user.get('dob', 'Not provided'),
-            "profile_picture": user.get('profile_picture', '/uploaded_images/default.jpg'),
+            "profile_picture": user.get('profile_picture', DEFAULT_PROFILE_PIC),
             "role": user.get('role', 'user'),
             "joinedAt": user.get('joinedAt', 'Unknown'),
             "account_locked_until": lock_time.isoformat() if lock_time else None
