@@ -103,59 +103,72 @@ const Chat = () => {
   };
   
   const speakText = async (text, messageId) => {
-    try {
-      setSpeakingMessageId(messageId); // 🔹 Track only the clicked message
-      
-      const cleanText = stripHTML(text); // 🔹 Remove HTML tags
-  
-      if (isMobile) {
-        // 🔹 Use browser's built-in speech synthesis for mobile
-        const speech = new SpeechSynthesisUtterance(cleanText);
-        speech.lang = "en-US";
-        speech.rate = 1.0; // 🔹 Normal speed for clarity
-        speech.pitch = 1.1; // 🔹 Slightly increased pitch for better pronunciation
-        speech.volume = 1.0; // 🔹 Ensure full volume
-  
-        speech.onend = () => setSpeakingMessageId(null); // 🔹 Reset when speech ends
-        speech.onerror = () => setSpeakingMessageId(null); // 🔹 Reset on error
-  
-        speechSynthesis.speak(speech);
-      } else {
-        // 🔹 Call backend API for desktop TTS
-        const response = await fetch("/api/text-to-speech", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: cleanText, rate: 150 }),
-        });
-  
-        if (!response.ok) {
-          throw new Error("Failed to start speech on the server");
-        }
+  try {
+    setSpeakingMessageId(messageId);
+
+    const cleanText = stripHTML(text);
+
+    if (isMobile) {
+      // 🔹 Use browser's built-in speech synthesis for mobile
+      const speech = new SpeechSynthesisUtterance(cleanText);
+      speech.lang = "en-US";
+      speech.rate = 1.0;
+      speech.pitch = 1.1;
+      speech.volume = 1.0;
+
+      speech.onend = () => setSpeakingMessageId(null);
+      speech.onerror = () => setSpeakingMessageId(null);
+
+      speechSynthesis.speak(speech);
+    } else {
+      // 🔹 Call backend API for desktop TTS
+      const response = await fetch("/api/text-to-speech", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: cleanText, rate: 150 }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to start speech on the server");
       }
-    } catch (error) {
-      console.error("Error playing speech:", error);
-      setSpeakingMessageId(null); // 🔹 Reset state on error
-    }
-  };
-  
-  const stopSpeech = async () => {
-    try {
-      if (isMobile) {
-        // 🔹 Stop speech for mobile browsers
-        speechSynthesis.cancel();
-      } else {
-        // 🔹 Call backend API to stop speech for desktop
-        const response = await fetch("/api/stop-speech", { method: "POST" });
-        if (!response.ok) {
-          throw new Error("Failed to stop speech on the server");
-        }
+
+      // 🔹 Handle "coming soon" message
+      if (data.message?.toLowerCase().includes("coming soon")) {
+        alert("🔊 Text-to-Speech is coming soon in production!");
+        setSpeakingMessageId(null);
       }
-    } catch (error) {
-      console.error("Error stopping speech:", error);
-    } finally {
-      setSpeakingMessageId(null); // 🔹 Ensure state resets
     }
-  };
+  } catch (error) {
+    console.error("Error playing speech:", error);
+    setSpeakingMessageId(null);
+  }
+};
+
+const stopSpeech = async () => {
+  try {
+    if (isMobile) {
+      speechSynthesis.cancel();
+    } else {
+      const response = await fetch("/api/stop-speech", { method: "POST" });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to stop speech on the server");
+      }
+
+      if (data.message?.toLowerCase().includes("coming soon")) {
+        alert("⏹️ Stop speech is coming soon in production!");
+      }
+    }
+  } catch (error) {
+    console.error("Error stopping speech:", error);
+  } finally {
+    setSpeakingMessageId(null);
+  }
+};
+
   
   
   const languages = [
