@@ -55,70 +55,62 @@ const LawPDF = () => {
  
 
 
-  const handleDownload = async (bookId, fileName) => {
-    try {
-        const res = await axios.get(`/api/books/${bookId}/download`, {
-            responseType: 'blob',
-        });
-    
-        const url = window.URL.createObjectURL(new Blob([res.data]));
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', fileName); // dynamic name
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        window.URL.revokeObjectURL(url); // Clean up the URL object
-    
-        // Optimistic UI update
-        setBooks((prevBooks) =>
-            prevBooks.map((book) =>
-                book.id === bookId
-                    ? { ...book, downloads: (book.downloads || 0) + 1 }
-                    : book
-            )
-        );
-    } catch (err) {
-        console.error('Error downloading the book:', err);
-        alert('Failed to download the book. Please try again.');
-    }
+// Helper to call backend for stats update
+// Helper to safely update book stats in backend
+const updateBookStats = async (bookId, action) => {
+  if (!bookId) return;
+  try {
+    await axios.get(`/api/books/${bookId}/${action}`);
+  } catch (err) {
+    console.error(`Failed to update ${action} count:`, err);
+  }
 };
 
-const handleView = async (bookId) => {
-    try {
-        const response = await axios.get(`/api/books/${bookId}/view`, {
-            responseType: 'blob'
-        });
+// Download PDF safely
+const handleDownload = async (book) => {
+  if (!book || !book.id || !book.file_path) {
+    alert('Book data is missing.');
+    return;
+  }
 
-        const blob = new Blob([response.data], { type: 'application/pdf' });
-        const url = window.URL.createObjectURL(blob);
-        
-        // Open PDF in a new tab
-        const pdfWindow = window.open();
-        if (pdfWindow) {
-            pdfWindow.location.href = url;
-            
-            // Clean up the URL object when the window is closed
-            pdfWindow.onbeforeunload = () => {
-                window.URL.revokeObjectURL(url);
-            };
-            
-            // Update view count
-            setBooks((prevBooks) =>
-                prevBooks.map((book) =>
-                    book.id === bookId ? { ...book, views: (book.views || 0) + 1 } : book
-                )
-            );
-        } else {
-            alert('Please allow pop-ups to view the PDF');
-        }
-    } catch (err) {
-        console.error("Error viewing the book:", err);
-        alert('Failed to view the PDF. Please try again.');
-    }
+  // Update backend download count
+  await updateBookStats(book.id, 'download');
+
+  // Trigger browser download via Cloudinary
+  const link = document.createElement('a');
+  link.href = book.file_path + (book.file_path.includes('?') ? '&fl_attachment=true' : '?fl_attachment=true');
+  link.setAttribute('download', book.title + ".pdf");
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+
+  // Update UI optimistically
+  setBooks(prev =>
+    prev.map(b => b.id === book.id ? { ...b, downloads: (b.downloads || 0) + 1 } : b)
+  );
 };
 
-  
+// View PDF safely
+const handleView = async (book) => {
+  if (!book || !book.id || !book.file_path) {
+    alert('Book data is missing.');
+    return;
+  }
+
+  // Update backend view count
+  await updateBookStats(book.id, 'view');
+
+  // Open PDF in new tab
+  const newWindow = window.open(book.file_path, '_blank');
+  if (!newWindow) alert('Please allow pop-ups to view the PDF');
+
+  // Update UI optimistically
+  setBooks(prev =>
+    prev.map(b => b.id === book.id ? { ...b, views: (b.views || 0) + 1 } : b)
+  );
+};
+
+
 
   const filteredBooks = books.filter((book) => {
     const matchesSearch =
@@ -246,7 +238,7 @@ const handleView = async (bookId) => {
                     type="button"  // Explicitly set type to prevent unintended form submission
                     onClick={(event) => { 
                       event.preventDefault();  // Prevent page reload
-                      handleView(book.id);  // Call your function
+                      handleView(book);  // Call your function
                     }} 
                     className="law-pdf-btn law-pdf-view-btn"
                   >
@@ -256,7 +248,7 @@ const handleView = async (bookId) => {
 
                     
                     <button 
-                      onClick={() => handleDownload(book.id, `${book.title}.pdf`)}
+                      onClick={() => handleDownload(book)}
                       className="law-pdf-btn law-pdf-download-btn"
                     >
                       <Download size={18} />
