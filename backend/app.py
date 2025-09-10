@@ -14,43 +14,50 @@ from email.mime.multipart import MIMEMultipart
 from flask import Flask, request, jsonify, send_file
 from io import BytesIO
 from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
-import json
 from textwrap import wrap
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib import colors
-from bson import json_util
-from google.cloud import translate_v2 as translate
-import requests
 import uuid
 from datetime import datetime, timedelta
-import traceback
+import threading
 from reportlab.lib.enums import TA_CENTER
-from reportlab.platypus import ListItem, ListFlowable
 from markdown2 import markdown
 from googletrans import Translator
 from bs4 import BeautifulSoup
-import pyttsx3
-import threading
-import speech_recognition as sr
-from PIL import Image
 from pytz import timezone,utc
 from dotenv import load_dotenv
 import logging
 from werkzeug.middleware.proxy_fix import ProxyFix
 import cloudinary
 import cloudinary.uploader
+from speech_features import text_to_speech_handler, stop_speech_handler, speech_to_text_handler
 
-# --- 1. Cloudinary Config ---
+#--Unused imports, In future may use--#
+'''
+from PIL import Image
+from reportlab.platypus import ListItem, ListFlowable
+from google.cloud import translate_v2 as translate
+import requests
+from reportlab.lib import colors
+from reportlab.pdfgen import canvas
+import json
+from bson import json_util
+import traceback
+
+'''
+
+# load environment variables from .env file
+load_dotenv()
+
+#---- Cloudinary configuration ----#
 cloudinary.config(
-    cloud_name="dggciuh9l",
-    api_key="891663783567481",
-    api_secret="LQY5uCEGCGnI3cSKUflKrdeUtAc",
+    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
+    api_key=os.getenv("CLOUDINARY_API_KEY"),
+    api_secret=os.getenv("CLOUDINARY_API_SECRET"),
     secure=True
 )
 
-load_dotenv()
+# Set timezone to IST
 IST = timezone('Asia/Kolkata')
 
 '''ABSTRACT_API_KEY = os.getenv("ABSTRACT_API_KEY")'''
@@ -102,74 +109,32 @@ translator = Translator()
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 
-# 🔹 Global pyttsx3 engine instance
-engine = pyttsx3.init()
-
-def speak_text(text):
-    """Convert text to speech using pyttsx3"""
-    try:
-        engine.endLoop()  # Stop any previous loop if running
-    except:
-        pass  # Ignore if no loop is running
-    
-    engine.say(text)
-    engine.runAndWait()
+USE_SPEECH = os.getenv("USE_SPEECH", "false").lower() == "true"
 
 @app.route('/api/text-to-speech', methods=['POST'])
 def text_to_speech():
-    """API to receive text from frontend and play speech"""
+    if not USE_SPEECH:
+        return jsonify({'message': '🔊 Text-to-Speech is coming soon in production!'}), 200
+    
     data = request.get_json()
-    text = data.get('text', '')
-
-    if not text:
-        return jsonify({'error': 'No text provided'}), 400
-
-    try:
-        speak_text(text)  # Run synchronously (No threading)
-        return jsonify({'message': 'Speech playing'}), 200
-    except Exception as e:
-        return jsonify({'error': f'Error: {str(e)}'}), 500
+    response, status = text_to_speech_handler(data)
+    return jsonify(response), status
 
 @app.route('/api/stop-speech', methods=['POST'])
 def stop_speech():
-    """API to stop ongoing speech and reset the engine"""
-    global engine
-    try:
-        engine.stop()  # Stop ongoing speech
-        engine.endLoop()  # Ensure the loop is stopped
-        engine = pyttsx3.init()  # Reinitialize engine to clear any queued speech
-        return jsonify({'message': 'Speech stopped successfully'}), 200
-    except Exception as e:
-        return jsonify({'error': f'Error stopping speech: {str(e)}'}), 500
+    if not USE_SPEECH:
+        return jsonify({'message': '⏹️ Stop Speech is not available in production!'}), 200
     
-def recognize_speech():
-    recognizer = sr.Recognizer()
-    with sr.Microphone() as source:
-        print("Listening... Speak now.")
-        recognizer.adjust_for_ambient_noise(source)
-
-        try:
-            audio = recognizer.listen(source, timeout=10)  # Listen for 10 seconds
-            text = recognizer.recognize_google(audio)
-            return text
-        except sr.UnknownValueError:
-            return "Could not understand the audio."
-        except sr.RequestError:
-            return "Speech recognition service unavailable."
+    response, status = stop_speech_handler()
+    return jsonify(response), status
 
 @app.route('/api/speech-to-text', methods=['GET'])
 def speech_to_text():
-    response = {"text": ""}
-
-    def process_speech():
-        text = recognize_speech()
-        response["text"] = text
-
-    thread = threading.Thread(target=process_speech)
-    thread.start()
-    thread.join()  # Wait for the thread to complete
-
-    return jsonify(response)
+    if not USE_SPEECH:
+        return jsonify({'message': '🎤 Speech-to-Text is coming soon in production!'}), 200
+    
+    response, status = speech_to_text_handler()
+    return jsonify(response), status
 
 
 def serialize_book(book):
@@ -216,7 +181,6 @@ def serve_book(book_id, action):
 
 
 
-
 @app.route("/api/translate", methods=["POST"])
 def translate_text():
     try:
@@ -226,7 +190,9 @@ def translate_text():
         target_lang = data.get("targetLang")
 
         if not message_id or not message_content or not target_lang:
-            return jsonify({"error": "Invalid request. 'messageId', 'messageContent', and 'targetLang' are required."}), 400
+            return jsonify({
+                "error": "Invalid request. 'messageId', 'messageContent', and 'targetLang' are required."
+            }), 400
 
         def format_response(response_text):
             """Ensures the response retains the same structure as the bot's original response."""
@@ -254,7 +220,10 @@ def translate_text():
         # Step 3: Translate only the text inside tags while preserving HTML
         for tag in soup.find_all(string=True):
             if tag.parent.name in ["strong", "li", "p"]:  # Translate only inside text-containing tags
-                translated_text = translator.translate(tag, dest=target_lang).text
+                try:
+                    translated_text = translator.translate(tag, dest=target_lang).text
+                except Exception:
+                    translated_text = tag  # fallback to original if translation fails
                 tag.replace_with(translated_text)
 
         # Step 4: Return Translated and Formatted Response
@@ -263,7 +232,9 @@ def translate_text():
         return jsonify({"translatedText": translated_content})
 
     except Exception as e:
-        return jsonify({"error": f"Translation failed: {str(e)}"}), 500
+        # Friendly fallback instead of raw error
+        return jsonify({"error": "⚠️ Translation service temporarily unavailable. Please try again later."}), 500
+    
     
 @app.route('/api/clear_chat', methods=['POST'])
 def clear_chat():
@@ -1236,12 +1207,11 @@ def chat():
         return jsonify({'error': 'There was an error processing your request.'}), 500
 
 
-
-# Helper Functions
 def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+    allowed_extensions = {'png', 'jpg', 'jpeg', 'gif'}
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowed_extensions
 
-
+# ---- Update Profile Picture ---- #
 @app.route('/api/update_profile_picture', methods=['POST'])
 def update_profile_picture():
     username = session.get('username')
@@ -1266,11 +1236,13 @@ def update_profile_picture():
             transformation=[{'width': 500, 'height': 500, 'crop': 'limit'}]
         )
 
+        print("Upload result:", result)
+
         # Remove old profile pic from Cloudinary if exists
         user = users_collection.find_one({'username': username})
         old_pic = user.get('profile_picture')
         if old_pic and "res.cloudinary.com" in old_pic:
-            public_id = old_pic.split('/')[-1].split('.')[0]
+            public_id = '/'.join(old_pic.split('/')[-2:]).split('.')[0]
             cloudinary.uploader.destroy(f'profile_pics/{public_id}')
 
         # Save new Cloudinary URL in DB
@@ -1284,7 +1256,7 @@ def update_profile_picture():
     except Exception as e:
         return jsonify({'message': 'Error uploading image', 'error': str(e)}), 500
 
-    
+# ---- Remove Profile Picture ---- #
 @app.route('/api/remove_profile_picture', methods=['POST'])
 def remove_profile_picture():
     username = session.get('username')
@@ -1296,16 +1268,12 @@ def remove_profile_picture():
         return jsonify({'message': 'User not found'}), 404
 
     profile_pic_url = user.get('profile_picture')
-    
+
     try:
-        # If it’s a Cloudinary URL, delete the image from Cloudinary
         if profile_pic_url and "res.cloudinary.com" in profile_pic_url:
-            # Extract public_id from URL
-            # Example: https://res.cloudinary.com/<cloud>/image/upload/v12345/profile_pics/abcd1234.jpg
-            public_id = '/'.join(profile_pic_url.split('/')[-2:]).split('.')[0]  
+            public_id = '/'.join(profile_pic_url.split('/')[-2:]).split('.')[0]
             cloudinary.uploader.destroy(f"profile_pics/{public_id}")
 
-        # Remove profile_picture field from DB
         users_collection.update_one(
             {'username': username},
             {'$unset': {'profile_picture': ""}}
@@ -1315,8 +1283,6 @@ def remove_profile_picture():
 
     except Exception as e:
         return jsonify({'message': 'Error removing profile picture', 'error': str(e)}), 500
-
-
 
 
 # Quiz related functions
