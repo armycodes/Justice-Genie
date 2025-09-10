@@ -37,27 +37,45 @@ import speech_recognition as sr
 from PIL import Image
 from pytz import timezone,utc
 from dotenv import load_dotenv
+import logging
+from werkzeug.middleware.proxy_fix import ProxyFix
+
 load_dotenv()
 IST = timezone('Asia/Kolkata')
-# ABSTRACT_API_KEY = os.getenv("ABSTRACT_API_KEY")
+
+'''ABSTRACT_API_KEY = os.getenv("ABSTRACT_API_KEY")'''
+
+
+TEST_MODE = False # Set to False in production
 
 # Email setup
 EMAIL_USER = os.getenv("JG_EMAIL")
 EMAIL_PASS = os.getenv("JG_PASSWORD")
+
 # Get API key from environment
 api_key = os.getenv("GEMINI_API_KEY")
-
     
-app = Flask(__name__, static_folder='frontend/build/static')
- 
+app = Flask(__name__, static_folder='frontend/build/static') 
 CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
-
-
 app.secret_key = 'supersecretkey'
 
+# Fix headers if behind a proxy (safe to add, good practice)
+app.wsgi_app = ProxyFix(app.wsgi_app)
 
+# Configure logging (INFO level is enough for requests)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+
+@app.before_request
+def log_request():
+    logging.info(f"{request.remote_addr} {request.method} {request.path}")
+
+# Configure Google Gemini API
 genai.configure(api_key=api_key)  
 model = genai.GenerativeModel('gemini-1.5-flash')
+GUIDANCE = (
+    "Provide a detailed response about the specified legal topic under Indian law. "
+    "Include any relevant IPC sections, acts, and legal precedents."
+)
 
 # MongoDB connection setup
 client = MongoClient('mongodb://localhost:27017/')  
@@ -605,6 +623,10 @@ def serve_static_files(filename):
 # Register endpoint
 
 def send_verification_email(email, verification_code):
+    if TEST_MODE:
+        print(f"[TEST MODE] Skipping email to {email}")
+        return
+    
     sender_email = os.getenv("JG_EMAIL")
     receiver_email = email
     password = os.getenv("JG_PASSWORD")
@@ -700,8 +722,10 @@ def register():
     data = request.get_json()
     email = data['email']
     username = data['username']
+    
     # if not is_valid_email(email):
     #      return jsonify({'error': 'Invalid or non-existent email address.'}), 400
+    
     # Check if the username already exists
     existing_user = users_collection.find_one({'username': username})
     if existing_user:
@@ -1156,7 +1180,7 @@ def reset_password():
 
     return jsonify({'message': 'Password successfully reset. You can now log in with your new password.'})
 
-# API Endpoints
+# API Endpoint for Login
 @app.route('/api/login', methods=['POST'])
 def login():
     data = request.get_json()
@@ -1181,31 +1205,38 @@ def login():
 
     return jsonify({'error': 'Invalid credentials'}), 401
 
-
+# Chat Endpoint
 @app.route('/api/chat', methods=['POST'])
 def chat():
     if 'username' not in session:
         return jsonify({'error': 'Unauthorized'}), 401
 
-    data = request.get_json()
-    query = data.get('query')
+    data = request.get_json() or {}
+    query = (data.get('query') or "").strip()
+
+    if not query:
+        return jsonify({'error': 'Query cannot be empty.'}), 400
+    if len(query) > 2000:
+        return jsonify({'error': 'Query too long.'}), 400
+
+    if TEST_MODE:
+        return jsonify({'response': "This is a test response from the AI model."})
 
     if not is_legal_query(query):
         return jsonify({'response': "I'm here to assist with questions related to Indian law."})
 
     try:
-        guidance = (
-            "Provide a detailed response about the specified legal topic under Indian law. "
-            "Include any relevant IPC sections, acts, and legal precedents."
-        )
-        response = model.generate_content(guidance + "\n" + query)
+        response = model.generate_content(f"{GUIDANCE}\n{query}")
         formatted_response = format_response(response.text)
         return jsonify({'response': formatted_response})
+    except TimeoutError:
+        app.logger.error("AI model timeout")
+        return jsonify({'error': 'AI service timeout, please try again.'}), 504
     except Exception as e:
-        print(f'Error generating content: {e}')
+        app.logger.exception(f'Error generating content: {e}')
         return jsonify({'error': 'There was an error processing your request.'}), 500
-    
 
+# Profile Picture Upload Endpoint
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
