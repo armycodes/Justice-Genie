@@ -536,9 +536,7 @@ def get_collab_status():
     return jsonify({'submitted': bool(collab_submission)}), 200
 
 
-# Directory to save uploaded profile pictures
-
-
+# Legal query classification
 def is_legal_query(query):
     prompt = (
     f"Classify the following query strictly as 'legal' or 'non-legal' under the context of Indian law only. "
@@ -591,7 +589,6 @@ def serve_static_files(filename):
     return send_from_directory('static', filename)
 
 # Register endpoint
-
 def send_verification_email(email, verification_code):
     if TEST_MODE:
         print(f"[TEST MODE] Skipping email to {email}")
@@ -1125,8 +1122,6 @@ def verify_forgot_password_code():
         return jsonify({'status': 'fail', 'message': 'Invalid reset code.'}), 200
 
 
-
-
 # Reset Password Endpoint
 @app.route('/api/reset-password', methods=['POST'])
 def reset_password():
@@ -1463,9 +1458,7 @@ def update_game_name():
     return jsonify({'message': 'Game name updated successfully'}), 200
 
 
-
 #export pdf
-
 @app.route('/api/export-pdf', methods=['POST'])
 def export_pdf():
     try:
