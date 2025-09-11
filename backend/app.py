@@ -31,7 +31,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 import cloudinary
 import cloudinary.uploader
 from speech_features import text_to_speech_handler, stop_speech_handler, speech_to_text_handler
-
+from urllib.parse import quote_plus
 #--Unused imports, In future may use--#
 '''
 from PIL import Image
@@ -94,8 +94,14 @@ GUIDANCE = (
     "Include any relevant IPC sections, acts, and legal precedents."
 )
 
-# MongoDB connection setup
-client = MongoClient('mongodb://localhost:27017/')  
+
+# mongodb setupload_dotenv()env()
+username = os.getenv("MONGO_USER")
+password = quote_plus(os.getenv("MONGO_PASS")) 
+cluster  = os.getenv("MONGO_CLUSTER")
+MONGO_URI = f"mongodb+srv://{username}:{password}@{cluster}/?retryWrites=true&w=majority&appName=Cluster0"
+client = MongoClient(MONGO_URI) # for production
+# client = MongoClient('mongodb://localhost:27017/')  # for local
 db = client['law_chatbot']
 users_collection = db['users']
 feedback_collection = db["feedback"]
