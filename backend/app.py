@@ -27,7 +27,7 @@ from bs4 import BeautifulSoup
 from pytz import timezone,utc
 from dotenv import load_dotenv
 import logging
-from werkzeug.middleware.proxy_fix import ProxyFix
+# from werkzeug.middleware.proxy_fix import ProxyFix
 import cloudinary
 import cloudinary.uploader
 from speech_features import text_to_speech_handler, stop_speech_handler, speech_to_text_handler
@@ -81,14 +81,14 @@ CORS(
 app.secret_key = 'supersecretkey'
 
 # Fix headers if behind a proxy (safe to add, good practice)
-app.wsgi_app = ProxyFix(app.wsgi_app)
+# app.wsgi_app = ProxyFix(app.wsgi_app)
 
-# Configure logging (INFO level is enough for requests)
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+# # Configure logging (INFO level is enough for requests)
+# logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
-@app.before_request
-def log_request():
-    logging.info(f"{request.remote_addr} {request.method} {request.path}")
+# @app.before_request
+# def log_request():
+#     logging.info(f"{request.remote_addr} {request.method} {request.path}")
 
 # Configure Google Gemini API
 genai.configure(api_key=api_key)  
