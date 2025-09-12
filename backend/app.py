@@ -73,7 +73,11 @@ EMAIL_PASS = os.getenv("JG_PASSWORD")
 api_key = os.getenv("GEMINI_API_KEY")
     
 app = Flask(__name__, static_folder='frontend/build/static') 
-CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
+CORS(
+    app,
+    supports_credentials=True,
+    origins=["http://localhost:3000"]  # CRA frontend
+)
 app.secret_key = 'supersecretkey'
 
 # Fix headers if behind a proxy (safe to add, good practice)
