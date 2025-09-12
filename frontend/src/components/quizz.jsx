@@ -39,6 +39,7 @@ const Quiz = () => {
   const [leaderboardVisible, setLeaderboardVisible] = useState(false);
   const [leaderboard, setLeaderboard] = useState([]);
   const [userRank, setUserRank] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
 
   const quizLevels = [
@@ -137,12 +138,13 @@ const Quiz = () => {
     return () => clearInterval(timer); // Cleanup on unmount
   }, [quizStarted]); // Runs only when quizStarted changes
   
-  
-  const handleSubmit = useCallback(() => {
+const handleSubmit = useCallback(() => {
+  setIsSubmitting(true); // ✅ start loading
+
   axios.post(
     `${process.env.REACT_APP_BACKEND_URL}/api/submit_quiz`,
     { answers },
-    { withCredentials: true } // ✅ include credentials
+    { withCredentials: true } // include credentials
   )
   .then((response) => {
     console.log("Score received:", response.data.score);
@@ -152,20 +154,23 @@ const Quiz = () => {
     setSubmitted(true);
 
     // Fetch leaderboard with credentials
-    axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/leaderboard`, { withCredentials: true })
-      .then((res) => {
-        const sortedLeaderboard = res.data.leaderboard || [];
-        setLeaderboard(sortedLeaderboard);
+    return axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/leaderboard`, { withCredentials: true });
+  })
+  .then((res) => {
+    const sortedLeaderboard = res.data.leaderboard || [];
+    setLeaderboard(sortedLeaderboard);
 
-        const userEntry = sortedLeaderboard.find(player => player.username === username);
-        setUserRank(userEntry ? userEntry.rank : "N/A");
-      })
-      .catch((err) => console.error("Error updating leaderboard", err));
+    const userEntry = sortedLeaderboard.find(player => player.username === username);
+    setUserRank(userEntry ? userEntry.rank : "N/A");
   })
   .catch((error) => {
     console.error("Error submitting quiz", error);
+  })
+  .finally(() => {
+    setIsSubmitting(false); // ✅ stop loading
   });
 }, [answers, username]);
+
 
   useEffect(() => {
     if (!submitted && quizStarted) {
@@ -522,9 +527,20 @@ const handleSaveGameName = () => {
                   Previous
                 </button>
                 {currentQuestion === questions.length - 1 ? (
-                  <button className="quiz-submit" onClick={handleSubmit}>
-                    Submit Quiz
-                    <Trophy size={20} />
+                  <button 
+                    className="quiz-submit" 
+                    onClick={handleSubmit} 
+                    disabled={isSubmitting} // ✅ disable while loading
+                  >
+                    {isSubmitting ? (
+                      <span className="loading">
+                        Submitting... ⏳
+                      </span>
+                    ) : (
+                      <>
+                        Submit Quiz <Trophy size={20} />
+                      </>
+                    )}
                   </button>
                 ) : (
                   <button 
