@@ -98,21 +98,25 @@ GUIDANCE = (
 )
 
 
-# mongodb setupload_dotenv()env()
-username = os.getenv("MONGO_USER")
-password = quote_plus(os.getenv("MONGO_PASS")) 
-cluster  = os.getenv("MONGO_CLUSTER")
-MONGO_URI = f"mongodb+srv://{username}:{password}@{cluster}/?retryWrites=true&w=majority&appName=Cluster0"
-client = MongoClient(MONGO_URI) # for production
-# client = MongoClient('mongodb://localhost:27017/')  # for local
-db = client['law_chatbot']
+def get_db():
+    """Returns a MongoDB database connection for the current request."""
+    username = os.getenv("MONGO_USER")
+    password = quote_plus(os.getenv("MONGO_PASS"))
+    cluster  = os.getenv("MONGO_CLUSTER")
+    MONGO_URI = f"mongodb+srv://{username}:{password}@{cluster}/?retryWrites=true&w=majority&appName=Cluster0"
+
+    client = MongoClient(MONGO_URI)  # Creates a fresh client safely for each worker
+    return client['law_chatbot']
+
+# Initialize collections globally using the get_db() function
+db = get_db()
 users_collection = db['users']
-feedback_collection = db["feedback"]
+feedback_collection = db['feedback']
 quizzquestions_collection = db['quizzquestions']
-books_collection = db["books"]
+books_collection = db['books']
 collab_collection = db['collaborations']
 leaderboard_collection = db['leaderboard']
-chats_collection = db["chats"]  # New chat collection
+chats_collection = db['chats'] # New chat collection
 # translator = Translator()
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
