@@ -192,37 +192,48 @@ const stopSpeech = async () => {
     { name: "Sindhi", code: "sd", native: "سنڌي" },
   ];
   const handleTranslate = async (messageId, targetLang, messageContent) => {
-    setLoadingTranslation(targetLang);
-    setCurrentMessageId(messageId);
-    setCancelled(false);
-  
-    try {
-      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/translate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messageId, targetLang, messageContent }),
-      });
-  
-      const data = await response.json();
-      console.log("Translation Response:", data);
-  
-      if (!cancelled && data.translatedText) {
-        setMessages((prevMessages) =>
-          prevMessages.map((msg) =>
-            msg.id === messageId
-              ? { ...msg, originalContent: msg.content, content: data.translatedText, translated: true }
-              : msg
-          )
-        );
+  setLoadingTranslation(targetLang);
+  setCurrentMessageId(messageId);
+  setCancelled(false);
+
+  try {
+    const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/translate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messageId, targetLang, messageContent }),
+    });
+
+    const data = await response.json();
+    console.log("Translation Response:", data);
+
+    if (!cancelled && data.translatedText) {
+      setMessages((prevMessages) =>
+        prevMessages.map((msg) =>
+          msg.id === messageId
+            ? {
+                ...msg,
+                originalContent: msg.content,
+                content: data.translatedText,
+                translated: true,
+              }
+            : msg
+        )
+      );
+
+      // Optional: show a notification if it's the placeholder
+      if (data.translatedText.includes("coming soon")) {
+        alert("Translation service is coming soon!", "info");
       }
-    } catch (error) {
-      console.error("Translation request failed:", error);
-    } finally {
-      setLoadingTranslation(null);
-      setCurrentMessageId(null);
     }
-  };
-  
+  } catch (error) {
+    console.error("Translation request failed:", error);
+    alert("Translation failed. Please try again later.", "error");
+  } finally {
+    setLoadingTranslation(null);
+    setCurrentMessageId(null);
+  }
+};
+
   const handleRestore = (messageId) => {
     setMessages((prevMessages) =>
       prevMessages.map((msg) =>
