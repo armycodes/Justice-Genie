@@ -21,7 +21,7 @@ const AdminQuiz = () => {
     const fetchParticipants = async () => {
       try {
         setLoading(true);
-        const response = await fetch('/api/admin/quiz_participants');
+        const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/admin/quiz_participants`);
         
         if (!response.ok) {
           throw new Error(`HTTP error! Status: ${response.status}`);

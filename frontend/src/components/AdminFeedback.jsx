@@ -18,7 +18,7 @@ const AdminFeedback = () => {
   useEffect(() => {
     const fetchFeedbacks = async () => {
       try {
-        const response = await fetch('/api/admin/feedbacks', {
+        const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/admin/feedbacks`, {
           method: 'GET',
           credentials: 'include',
         });
