@@ -30,7 +30,6 @@ import logging
 # from werkzeug.middleware.proxy_fix import ProxyFix
 import cloudinary
 import cloudinary.uploader
-from speech_features import text_to_speech_handler, stop_speech_handler, speech_to_text_handler
 from urllib.parse import quote_plus
 #--Unused imports, In future may use--#
 '''
@@ -116,37 +115,19 @@ leaderboard_collection = db['leaderboard']
 chats_collection = db["chats"]  # New chat collection
 # translator = Translator()
 
-
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
-
-USE_SPEECH = os.getenv("USE_SPEECH", "false").lower() == "true"
 
 @app.route('/api/text-to-speech', methods=['POST'])
 def text_to_speech():
-    if not USE_SPEECH:
-        return jsonify({'message': '🔊 Text-to-Speech is coming soon in production!'}), 200
-    
-    data = request.get_json()
-    response, status = text_to_speech_handler(data)
-    return jsonify(response), status
-
+    return jsonify({'message': '🔊 Text-to-Speech is coming soon in production!'}), 200
 @app.route('/api/stop-speech', methods=['POST'])
 def stop_speech():
-    if not USE_SPEECH:
-        return jsonify({'message': '⏹️ Stop Speech is not available in production!'}), 200
+    return jsonify({'message': '⏹️ Stop Speech is not available in production!'}), 200
     
-    response, status = stop_speech_handler()
-    return jsonify(response), status
-
 @app.route('/api/speech-to-text', methods=['GET'])
 def speech_to_text():
-    if not USE_SPEECH:
-        return jsonify({'message': '🎤 Speech-to-Text is coming soon in production!'}), 200
+    return jsonify({'message': '🎤 Speech-to-Text is coming soon in production!'}), 200
     
-    response, status = speech_to_text_handler()
-    return jsonify(response), status
-
-
 def serialize_book(book):
     """Serialize MongoDB book document."""
     book['id'] = str(book['_id'])
