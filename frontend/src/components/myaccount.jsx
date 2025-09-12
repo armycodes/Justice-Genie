@@ -151,38 +151,51 @@ const MyAccount = () => {
 
   useEffect(() => {
     const fetchStats = async () => {
-      try {
-        const accountRes = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/myaccount`);
-        setGameName(accountRes.data.game_name);
+  try {
+    // ✅ Include session cookies
+    const accountRes = await axios.get(
+      `${process.env.REACT_APP_BACKEND_URL}/api/myaccount`,
+      { withCredentials: true }
+    );
+    setGameName(accountRes.data.game_name);
 
-        const leaderboardRes = await axios.get('/api/leaderboard');
-        const leaderboard = leaderboardRes.data.leaderboard;
-        const user = accountRes.data.username;
+    const leaderboardRes = await axios.get(
+      `${process.env.REACT_APP_BACKEND_URL}/api/leaderboard`,
+      { withCredentials: true } // 👈 include cookies here too if needed
+    );
 
-        const matched = leaderboard.find(item => item.username === user);
-        if (matched) {
-          setRank(matched.rank);
-        }
-      } catch (err) {
-        console.error('Error fetching rank or game name:', err);
-      }
-    };
+    const leaderboard = leaderboardRes.data.leaderboard;
+    const user = accountRes.data.username;
+
+    const matched = leaderboard.find(item => item.username === user);
+    if (matched) {
+      setRank(matched.rank);
+    }
+  } catch (err) {
+    console.error('Error fetching rank or game name:', err);
+  }
+};
+
 
     fetchStats();
   }, []);
 
     const fetchUserDetails = useCallback(async () => {
-        try {
-            const response = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/myaccount`);
-            setUserDetails(response.data);
-            setQuizProgress(response.data.quiz_progress || {});
-            setLoading(false);
-        } catch (error) {
-            console.error('Error fetching user details:', error);
-            showNotification('Failed to load user details', 'error');
-            setLoading(false);
-        }
-    }, []);
+    try {
+        const response = await axios.get(
+            `${process.env.REACT_APP_BACKEND_URL}/api/myaccount`,
+            { withCredentials: true } // 👈 important for cookies
+        );
+        setUserDetails(response.data);
+        setQuizProgress(response.data.quiz_progress || {});
+        setLoading(false);
+    } catch (error) {
+        console.error('Error fetching user details:', error);
+        showNotification('Failed to load user details', 'error');
+        setLoading(false);
+    }
+}, []);
+
 
     useEffect(() => {
         fetchUserDetails();
@@ -210,13 +223,18 @@ const MyAccount = () => {
         formData.append('profile_picture', file);
 
         try {
-            const response = await axios.post(`${process.env.REACT_APP_BACKEND_URL}/api/update_profile_picture`, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' },
-                onUploadProgress: (progressEvent) => {
+            const response = await axios.post(
+                `${process.env.REACT_APP_BACKEND_URL}/api/update_profile_picture`,
+                formData,
+                {
+                    headers: { 'Content-Type': 'multipart/form-data' },
+                    withCredentials: true, // 👈 include session cookie
+                    onUploadProgress: (progressEvent) => {
                     const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
                     setUploadProgress(progress);
+                    },
                 }
-            });
+                );
 
             setUserDetails(prev => ({
                 ...prev,
@@ -246,7 +264,12 @@ const MyAccount = () => {
         if (!result.isConfirmed) return;
       
         try {
-          const response = await axios.post(`${process.env.REACT_APP_BACKEND_URL}/api/remove_profile_picture`);
+          const response = await axios.post(
+            `${process.env.REACT_APP_BACKEND_URL}/api/remove_profile_picture`,
+            {},
+            { withCredentials: true } // 👈 include session cookie
+            );
+
           if (response.data.message) {
             setUserDetails(prev => ({
               ...prev,
@@ -279,28 +302,38 @@ const MyAccount = () => {
         }
 
         try {
-            await axios.post(`${process.env.REACT_APP_BACKEND_URL}/api/update_profile`, editField);
+            await axios.post(
+                `${process.env.REACT_APP_BACKEND_URL}/api/update_profile`,
+                editField,
+                { withCredentials: true } // 👈 include session cookie
+            );
+
             setUserDetails(prev => ({ ...prev, ...editField }));
             setIsEditing(false);
             setEditField({ username: '', password: '' });
             showNotification('Profile updated successfully');
-        } catch (error) {
+            } catch (error) {
             console.error('Error updating profile:', error);
             showNotification('Failed to update profile', 'error');
-        }
+            }
     };
 
     // Feedback Submission Handler
     useEffect(() => {
         const fetchFeedbackStatus = async () => {
-            try {
-                const response = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/get_feedback_status?email=${userDetails.email}`);
-                if (response.data.submitted) {
-                    setFeedbackSubmitted(true);  // Show "Thank you" message
-                }
-            } catch (error) {
-                console.error('Error fetching feedback status:', error);
+           try {
+            const response = await axios.get(
+                `${process.env.REACT_APP_BACKEND_URL}/api/get_feedback_status?email=${userDetails.email}`,
+                { withCredentials: true } // 👈 include session cookie
+            );
+
+            if (response.data.submitted) {
+                setFeedbackSubmitted(true);  // Show "Thank you" message
             }
+            } catch (error) {
+            console.error('Error fetching feedback status:', error);
+            }
+
         };
 
         if (userDetails.email) {
@@ -315,45 +348,46 @@ const MyAccount = () => {
         }
     
         try {
-            await axios.post(`${process.env.REACT_APP_BACKEND_URL}/api/submit_feedback`, {
+            await axios.post(
+                `${process.env.REACT_APP_BACKEND_URL}/api/submit_feedback`,
+                {
                 feedbackText,
-                // feedbackStars, // include stars in the submission
+                // feedbackStars, // include stars if needed
                 email: userDetails.email,
-            });
-    
+                },
+                { withCredentials: true } // 👈 include session cookie
+            );
+
             showNotification("Thanks for your feedback! 😊", "success");
             setFeedbackText('');
             // setFeedbackStars([0, 0, 0, 0, 0, 0]); // reset stars
             setFeedbackSubmitted(true); 
             toggleModal('feedback', false);
-        } catch (error) {
+            } catch (error) {
             console.error("Error submitting feedback:", error);
             showNotification("Failed to submit feedback", "error");
-        }
+            }
+
     };
-    
-
-    // const handleStarClick = (questionIndex, rating) => {
-    //     const updatedStars = [...feedbackStars];
-    //     updatedStars[questionIndex] = rating;
-    //     setFeedbackStars(updatedStars);
-    // };
-    
-
     // Collaboration Status
     useEffect(() => {
         const fetchCollabStatus = async () => {
             try {
                 console.log("Fetching collab status for:", userDetails.email);
-                const response = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/get_collab_status`, {
-                    params: { email: userDetails.email } // ✅ passing email
-                });
+                const response = await axios.get(
+                `${process.env.REACT_APP_BACKEND_URL}/api/get_collab_status`,
+                {
+                    params: { email: userDetails.email }, // ✅ passing email
+                    withCredentials: true,               // 👈 include session cookie
+                }
+                );
                 console.log("Collab Status Response:", response.data);
                 setHasSubmitted(response.data.submitted);
             } catch (error) {
                 console.error('Error fetching collaboration status:', error);
             }
         };
+
     
         if (userDetails.email) {
             fetchCollabStatus();
@@ -425,7 +459,9 @@ const MyAccount = () => {
         setIsSubmittingCollab(true);
     
         try {
-            const response = await axios.post(`${process.env.REACT_APP_BACKEND_URL}/api/collab`, {
+           const response = await axios.post(
+            `${process.env.REACT_APP_BACKEND_URL}/api/collab`,
+            {
                 name: data.name,
                 email: data.email,
                 collaborationType: data.collaborationType,
@@ -433,8 +469,11 @@ const MyAccount = () => {
                 language: data.language,
                 frameworks: data.frameworks || "Not specified",
                 database: data.database || "Not specified",
-                skills: data.skills || "Not specified"
-            });
+                skills: data.skills || "Not specified",
+            },
+            { withCredentials: true } // 👈 send session cookie
+            );
+
     
             showNotification(response.data.success, "success");
     
@@ -502,6 +541,7 @@ const MyAccount = () => {
           const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/clear_chat`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
+            credentials: "include", // important for session cookies
             body: JSON.stringify({ username: userDetails.username }),
           });
       

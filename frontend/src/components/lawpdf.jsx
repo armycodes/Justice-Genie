@@ -60,11 +60,15 @@ const LawPDF = () => {
 const updateBookStats = async (bookId, action) => {
   if (!bookId) return;
   try {
-    await axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/books/${bookId}/${action}`);
+    await axios.get(
+      `${process.env.REACT_APP_BACKEND_URL}/api/books/${bookId}/${action}`,
+      { withCredentials: true } // ✅ include session cookies
+    );
   } catch (err) {
     console.error(`Failed to update ${action} count:`, err);
   }
 };
+
 
 // Download PDF safely
 const handleDownload = async (book) => {

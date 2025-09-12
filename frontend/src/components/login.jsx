@@ -21,48 +21,50 @@ const Login = () => {
   };
 
   // Form submission handler
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!username || !password) {
-      setLoginMessage('Please fill in all fields');
-      return;
+ const handleSubmit = async (e) => {
+  e.preventDefault();
+  if (!username || !password) {
+    setLoginMessage('Please fill in all fields');
+    return;
+  }
+
+  setLoading(true);
+  setLoginMessage('');
+
+  try {
+    const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',   // 👈 must add this!
+      body: JSON.stringify({ username, password }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Invalid credentials');
     }
-  
-    setLoading(true);
-    setLoginMessage('');
-  
-    try {
-      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ username, password }),
-      });
-  
-      if (!response.ok) {
-        throw new Error('Invalid credentials');
+
+    const data = await response.json(); // contains isAdmin
+
+    setLoginMessage('Login successful!');
+    setTimeout(() => {
+      sessionStorage.setItem('isLoggedIn', 'true');           // ✅ Required for ProtectedRoute
+      sessionStorage.setItem('isAdmin', data.isAdmin);        // Optional
+
+      if (data.isAdmin) {
+        navigate('/admin');
+      } else {
+        navigate('/chat');
       }
-  
-      const data = await response.json(); // contains isAdmin
-  
-      setLoginMessage('Login successful!');
-      setTimeout(() => {
-        sessionStorage.setItem('isLoggedIn', 'true');           // ✅ Required for ProtectedRoute
-        sessionStorage.setItem('isAdmin', data.isAdmin);        // Optional
-  
-        if (data.isAdmin) {
-          navigate('/admin');
-        } else {
-          navigate('/chat');
-        }
-      }, 1000);
-    } catch (error) {
-      setLoginMessage(error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+    }, 1000);
+  } catch (error) {
+    setLoginMessage(error.message);
+  } finally {
+    setLoading(false);
+  }
+};
+
   
   
   const pageVariants = {

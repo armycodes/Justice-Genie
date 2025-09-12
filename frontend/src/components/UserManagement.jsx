@@ -22,7 +22,12 @@ const UserManagement = () => {
     const fetchUsers = async () => {
       setIsLoading(true);
       try {
-        const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/admin/users`);
+        const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/admin/users`,{
+          credentials: 'include'
+        });
+        if (!response.ok) {
+          throw new Error('Failed to fetch users');
+        }
         const data = await response.json();
         setUsers(data.users || []);
   
@@ -33,7 +38,10 @@ const UserManagement = () => {
   
         // Fetch lock status only for locked users
         const lockStatusPromises = lockedUserEmails.map(async (email) => {
-          const res = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/user/lock-status?email=${email}`);
+          const res = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/user/lock-status?email=${email}`,{
+            credentials: 'include'
+          });
+          if (!res.ok) return null;
           const data = await res.json();
           if (data.success) {
             if (data.lock_until === null) {
@@ -72,10 +80,6 @@ const UserManagement = () => {
     fetchUsers();
   }, []);
   
-  
-  
-  
-
   const handleRemove = async (email) => {
     // If the user is already locked, return
     if (lockedUsers[email]) return;

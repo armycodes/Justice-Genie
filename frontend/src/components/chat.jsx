@@ -122,11 +122,16 @@ const Chat = () => {
       speechSynthesis.speak(speech);
     } else {
       // 🔹 Call backend API for desktop TTS
-      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/text-to-speech`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: cleanText, rate: 150 }),
-      });
+      const response = await fetch(
+  `${process.env.REACT_APP_BACKEND_URL}/api/text-to-speech`,
+  {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include", // 👈 include session cookie
+    body: JSON.stringify({ text: cleanText, rate: 150 }),
+  }
+);
+
 
       const data = await response.json();
 
@@ -242,15 +247,23 @@ const handleCancelTranslation = () => {
     if (!username) return;
   
     const fetchMessages = async () => {
-      try {
-        setMessages([]); // Clear messages before fetching
-        const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/get_chat?username=${username}`);
-        const data = await response.json();
-        setMessages(data.messages || []); // Setting messages after fetching
-      } catch (error) {
-        console.error("Error fetching chat history:", error);
+  try {
+    setMessages([]); // Clear messages before fetching
+    const response = await fetch(
+      `${process.env.REACT_APP_BACKEND_URL}/api/get_chat?username=${username}`,
+      {
+        method: "GET",
+        credentials: "include", // 🔑 send cookies/session
       }
-    };
+    );
+
+    const data = await response.json();
+    setMessages(data.messages || []); // Setting messages after fetching
+  } catch (error) {
+    console.error("Error fetching chat history:", error);
+  }
+};
+
   
     fetchMessages();
   
@@ -274,6 +287,7 @@ const handleCancelTranslation = () => {
       const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/analyze_probability`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include", // 👈 include session cookie
         body: JSON.stringify({ bot_response: botMessage }),
       });
   
@@ -425,24 +439,31 @@ useEffect(() => {
 
   // Fetch User Data (Ensure unique chat storage per user)
   const fetchUserData = async () => {
-    try {
-      setError(null);
-      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/myaccount`);
-      if (!response.ok) throw new Error('Failed to fetch user data');
-      const data = await response.json();
-      setUsername(data.username);
-      setProfilePicture(data.profile_picture || '');
-      
-      // Load user-specific chat history
-      const savedMessages = localStorage.getItem(`chatHistory_${data.username}`);
-      if (savedMessages) {
-        setMessages(JSON.parse(savedMessages));
+  try {
+    setError(null);
+    const response = await fetch(
+      `${process.env.REACT_APP_BACKEND_URL}/api/myaccount`,
+      {
+        credentials: 'include', // 👈 sends cookies/session
       }
-    } catch (error) {
-      console.error('Error fetching user data:', error);
-      setError('Failed to load user data. Please refresh the page.');
+    );
+    console.log("myaccount response:", response.status, response.statusText);
+    if (!response.ok) throw new Error('Failed to fetch user data');
+    const data = await response.json();
+    setUsername(data.username);
+    setProfilePicture(data.profile_picture || '');
+
+    // Load user-specific chat history
+    const savedMessages = localStorage.getItem(`chatHistory_${data.username}`);
+    if (savedMessages) {
+      setMessages(JSON.parse(savedMessages));
     }
-  };
+  } catch (error) {
+    console.error('Error fetching user data:', error);
+    setError('Failed to load user data. Please refresh the page.');
+  }
+};
+
   
   useEffect(() => {
     fetchUserData();
@@ -467,60 +488,72 @@ useEffect(() => {
   const abortControllerRef = useRef(null); // Holds the abort controller reference
 
   const handleSendMessage = async () => {
-    if (!input.trim() || isLoading || !isOnline) return;
-  
-    const messageId = Date.now().toString();
-    const userMessage = { id: messageId, type: "user", content: input, timestamp: new Date().toISOString() };
-  
-    setMessages((prev) => [...prev, userMessage]);
-    setInput("");
-    setIsLoading(true);
-    setError(null);
-  
-    abortControllerRef.current = new AbortController();
-  
-    try {
-      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/chat`, {
+  if (!input.trim() || isLoading || !isOnline) return;
+
+  const messageId = Date.now().toString();
+  const userMessage = {
+    id: messageId,
+    type: "user",
+    content: input,
+    timestamp: new Date().toISOString(),
+  };
+
+  setMessages((prev) => [...prev, userMessage]);
+  setInput("");
+  setIsLoading(true);
+  setError(null);
+
+  abortControllerRef.current = new AbortController();
+
+  try {
+    // Send user query to backend
+    const response = await fetch(
+      `${process.env.REACT_APP_BACKEND_URL}/api/chat`,
+      {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include", // 👈 include session cookie
         body: JSON.stringify({ query: input }),
         signal: abortControllerRef.current.signal,
-      });
-  
-      if (!response.ok) throw new Error("Network response was not ok");
-  
-      const data = await response.json();
-      const botMessage = {
-        id: Date.now().toString(),
-        type: "bot",
-        content: data.response,
-        timestamp: new Date().toISOString(),
-      };
-  
-      setTimeout(async () => {
-        setMessages((prev) => [...prev, botMessage]);
-        setIsLoading(false);
-  
-        // ✅ Store both user & bot messages in MongoDB
-        await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/store_message`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            username,
-            messages: [userMessage, botMessage], // Storing both messages
-          }),
-        });
-      }, 800);
-    } catch (error) {
-      if (error.name === "AbortError") {
-        console.log("Request was aborted");
-      } else {
-        console.error("Error:", error);
-        setError("Failed to send message. Please try again.");
       }
+    );
+
+    if (!response.ok) throw new Error("Network response was not ok");
+
+    const data = await response.json();
+    const botMessage = {
+      id: Date.now().toString(),
+      type: "bot",
+      content: data.response,
+      timestamp: new Date().toISOString(),
+    };
+
+    setTimeout(async () => {
+      setMessages((prev) => [...prev, botMessage]);
       setIsLoading(false);
+
+      // Store both user & bot messages in MongoDB
+      await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/store_message`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include", // 👈 include session cookie here too
+        body: JSON.stringify({
+          username,
+          messages: [userMessage, botMessage], // Storing both messages
+        }),
+      });
+    }, 800);
+  } catch (error) {
+    if (error.name === "AbortError") {
+      console.log("Request was aborted");
+    } else {
+      console.error("Error:", error);
+      setError("Failed to send message. Please try again.");
     }
-  };
+    setIsLoading(false);
+  }
+};
+
   
 
 const handleStopRequest = () => {
@@ -538,6 +571,7 @@ const handleStopRequest = () => {
       const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/export-pdf`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           messages: messages.map(({ type, content, timestamp }) => ({
             user: type === 'user' ? 'You' : 'Justice Genie',

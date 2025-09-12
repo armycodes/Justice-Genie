@@ -75,39 +75,43 @@ const Quiz = () => {
   ];
 
   useEffect(() => {
-    axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/get_quiz`)
-      .then((response) => {
-        setQuestions(response.data.quiz);
-      })
-      .catch((error) => {
-        console.error("Error fetching quiz questions", error);
-      });
-      
-   
-  }, []);
+  axios
+    .get(`${process.env.REACT_APP_BACKEND_URL}/api/get_quiz`, {
+      withCredentials: true, // 👈 send session cookie if needed
+    })
+    .then((response) => {
+      setQuestions(response.data.quiz);
+    })
+    .catch((error) => {
+      console.error("Error fetching quiz questions", error);
+    });
+}, []);
+
   useEffect(() => {
-    axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/myaccount`)
-      .then((response) => {
-        const fetchedUsername = response.data.username;
-        const fetchedGameName = response.data.game_name || 'Justice Warrior'; // ✅ fallback if null
-  
-        setUsername(fetchedUsername);
-        setGameName(fetchedGameName);
-        setTempGameName(fetchedGameName);
-  
-        axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/leaderboard`)
-          .then((res) => {
-            const sortedLeaderboard = res.data.leaderboard || [];
-            setLeaderboard(sortedLeaderboard);
-  
-            const userEntry = sortedLeaderboard.find(player => player.username === fetchedUsername);
-            setUserRank(userEntry ? userEntry.rank : "N/A");
-          })
-          .catch(err => console.error("Error fetching leaderboard", err));
-      })
-      .catch(err => console.error("Error fetching user details", err));
-  }, []);
-  
+  axios
+    .get(`${process.env.REACT_APP_BACKEND_URL}/api/myaccount`, { withCredentials: true })
+    .then((response) => {
+      const fetchedUsername = response.data.username;
+      const fetchedGameName = response.data.game_name || 'Justice Warrior'; // fallback
+
+      setUsername(fetchedUsername);
+      setGameName(fetchedGameName);
+      setTempGameName(fetchedGameName);
+
+      axios
+        .get(`${process.env.REACT_APP_BACKEND_URL}/api/leaderboard`, { withCredentials: true })
+        .then((res) => {
+          const sortedLeaderboard = res.data.leaderboard || [];
+          setLeaderboard(sortedLeaderboard);
+
+          const userEntry = sortedLeaderboard.find(player => player.username === fetchedUsername);
+          setUserRank(userEntry ? userEntry.rank : "N/A");
+        })
+        .catch(err => console.error("Error fetching leaderboard", err));
+    })
+    .catch(err => console.error("Error fetching user details", err));
+}, []);
+
   
   
 
@@ -135,42 +139,34 @@ const Quiz = () => {
   
   
   const handleSubmit = useCallback(() => {
-    axios.post(`${process.env.REACT_APP_BACKEND_URL}/api/submit_quiz`, { answers })
-      .then((response) => {
-        console.log("Score received:", response.data.score); // ✅ Debugging log
-        setScore(response.data.score);  
-        setPercentage(response.data.percentage);
-        setResults(response.data.results || []);
-        setSubmitted(true);
-  
-        // ✅ Fetch leaderboard and update rank dynamically
-        axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/leaderboard`)
-          .then((res) => {
-            const sortedLeaderboard = res.data.leaderboard || [];
-            setLeaderboard(sortedLeaderboard);
-  
-            // ✅ Extract updated rank dynamically
-            const userEntry = sortedLeaderboard.find(player => player.username === username);
-            if (userEntry) {
-              console.log("Updated Rank:", userEntry.rank);
-              setUserRank(userEntry.rank);  // ✅ Update rank dynamically
-            } else {
-              setUserRank("N/A");
-            }
-          })
-          .catch((err) => console.error("Error updating leaderboard", err));
-  
-        // ❌ Remove the `/api/myaccount` call for rank (it fetches stale data)
-      })
-      .catch((error) => {
-        console.error("Error submitting quiz", error);
-      });
-  }, [answers, username]);
+  axios.post(
+    `${process.env.REACT_APP_BACKEND_URL}/api/submit_quiz`,
+    { answers },
+    { withCredentials: true } // ✅ include credentials
+  )
+  .then((response) => {
+    console.log("Score received:", response.data.score);
+    setScore(response.data.score);  
+    setPercentage(response.data.percentage);
+    setResults(response.data.results || []);
+    setSubmitted(true);
 
-  
-  
-  
-  
+    // Fetch leaderboard with credentials
+    axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/leaderboard`, { withCredentials: true })
+      .then((res) => {
+        const sortedLeaderboard = res.data.leaderboard || [];
+        setLeaderboard(sortedLeaderboard);
+
+        const userEntry = sortedLeaderboard.find(player => player.username === username);
+        setUserRank(userEntry ? userEntry.rank : "N/A");
+      })
+      .catch((err) => console.error("Error updating leaderboard", err));
+  })
+  .catch((error) => {
+    console.error("Error submitting quiz", error);
+  });
+}, [answers, username]);
+
   useEffect(() => {
     if (!submitted && quizStarted) {
       if (timeLeft === 0) {
@@ -210,41 +206,48 @@ const Quiz = () => {
     setEditingName(true);
   };
 
-  const handleSaveGameName = () => {
-    axios.post(`${process.env.REACT_APP_BACKEND_URL}/api/update_game_name`, { game_name: tempGameName })
-      .then(() => {
-        setGameName(tempGameName);
-        setEditingName(false);
-  
-        // ✅ Optional: Immediately refresh leaderboard
-        axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/leaderboard`)
-          .then((res) => {
-            setLeaderboard(res.data.leaderboard || []);
-          });
-      })
-      .catch(err => console.error("Game name update failed", err));
-  };
-  
-  
+const handleSaveGameName = () => {
+  axios.post(
+    `${process.env.REACT_APP_BACKEND_URL}/api/update_game_name`,
+    { game_name: tempGameName },
+    { withCredentials: true } // ✅ include session cookies
+  )
+  .then(() => {
+    setGameName(tempGameName);
+    setEditingName(false);
 
-  const handleSelectLevel = (levelId) => {
-    if (!quizLevels[levelId].locked) {
-      setSelectedLevel(levelId);
-      setSubmitted(false);
-      setAnswers({});
-      setCurrentQuestion(0);
-      setTimeLeft(900);
-      
-      // In a real app, you would fetch questions for the selected level
-      axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/get_quiz?level=${levelId}`)
-        .then((response) => {
-          setQuestions(response.data.quiz);
-        })
-        .catch((error) => {
-          console.error("Error fetching quiz questions", error);
-        });
-    }
-  };
+    // Refresh leaderboard with credentials
+    axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/leaderboard`, { withCredentials: true })
+      .then((res) => {
+        setLeaderboard(res.data.leaderboard || []);
+      })
+      .catch(err => console.error("Error fetching leaderboard", err));
+  })
+  .catch(err => console.error("Game name update failed", err));
+};
+
+  
+ const handleSelectLevel = (levelId) => {
+  if (!quizLevels[levelId].locked) {
+    setSelectedLevel(levelId);
+    setSubmitted(false);
+    setAnswers({});
+    setCurrentQuestion(0);
+    setTimeLeft(900);
+
+    axios.get(
+      `${process.env.REACT_APP_BACKEND_URL}/api/get_quiz?level=${levelId}`,
+      { withCredentials: true } // ✅ include session cookies
+    )
+    .then((response) => {
+      setQuestions(response.data.quiz);
+    })
+    .catch((error) => {
+      console.error("Error fetching quiz questions", error);
+    });
+  }
+};
+
 
   const toggleLeaderboard = () => {
     setLeaderboardVisible(!leaderboardVisible);
