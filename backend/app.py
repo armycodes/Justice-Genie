@@ -22,7 +22,7 @@ from datetime import datetime, timedelta
 import threading
 from reportlab.lib.enums import TA_CENTER
 from markdown2 import markdown
-from googletrans import Translator
+
 from bs4 import BeautifulSoup
 from pytz import timezone,utc
 from dotenv import load_dotenv
@@ -43,7 +43,7 @@ from reportlab.pdfgen import canvas
 import json
 from bson import json_util
 import traceback
-
+from googletrans import Translator
 '''
 
 # load environment variables from .env file
@@ -114,7 +114,7 @@ books_collection = db["books"]
 collab_collection = db['collaborations']
 leaderboard_collection = db['leaderboard']
 chats_collection = db["chats"]  # New chat collection
-translator = Translator()
+# translator = Translator()
 
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
@@ -191,61 +191,75 @@ def serve_book(book_id, action):
 
 
 
+# @app.route("/api/translate", methods=["POST"])
+# def translate_text():
+#     try:
+#         data = request.json
+#         message_id = data.get("messageId")
+#         message_content = data.get("messageContent")  # Original formatted text
+#         target_lang = data.get("targetLang")
+
+#         if not message_id or not message_content or not target_lang:
+#             return jsonify({
+#                 "error": "Invalid request. 'messageId', 'messageContent', and 'targetLang' are required."
+#             }), 400
+
+#         def format_response(response_text):
+#             """Ensures the response retains the same structure as the bot's original response."""
+#             response_text = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', response_text)
+#             lines = response_text.splitlines()
+#             formatted_lines = []
+
+#             for line in lines:
+#                 if re.match(r'^\d+\.', line):  # Numbered list (1., 2., etc.)
+#                     formatted_lines.append(f"<p><strong>{line}</strong></p>")
+#                 elif line.strip().startswith('*'):  # Bullet points (* point)
+#                     subpoint = line.strip().lstrip('*').strip()
+#                     formatted_lines.append(f"<ul><li>{subpoint}</li></ul>")
+#                 else:
+#                     formatted_lines.append(f"<p>{line}</p>")
+
+#             return ''.join(formatted_lines)
+
+#         # Step 1: Format Original Response
+#         formatted_content = format_response(message_content)
+
+#         # Step 2: Parse the formatted content using BeautifulSoup
+#         soup = BeautifulSoup(formatted_content, "html.parser")
+
+#         # Step 3: Translate only the text inside tags while preserving HTML
+#         for tag in soup.find_all(string=True):
+#             if tag.parent.name in ["strong", "li", "p"]:  # Translate only inside text-containing tags
+#                 try:
+#                     translated_text = translator.translate(tag, dest=target_lang).text
+#                 except Exception:
+#                     translated_text = tag  # fallback to original if translation fails
+#                 tag.replace_with(translated_text)
+
+#         # Step 4: Return Translated and Formatted Response
+#         translated_content = str(soup)
+
+#         return jsonify({"translatedText": translated_content})
+
+#     except Exception as e:
+#         # Friendly fallback instead of raw error
+#         return jsonify({"error": "⚠️ Translation service temporarily unavailable. Please try again later."}), 500
+    
+
 @app.route("/api/translate", methods=["POST"])
 def translate_text():
     try:
-        data = request.json
-        message_id = data.get("messageId")
-        message_content = data.get("messageContent")  # Original formatted text
-        target_lang = data.get("targetLang")
-
-        if not message_id or not message_content or not target_lang:
-            return jsonify({
-                "error": "Invalid request. 'messageId', 'messageContent', and 'targetLang' are required."
-            }), 400
-
-        def format_response(response_text):
-            """Ensures the response retains the same structure as the bot's original response."""
-            response_text = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', response_text)
-            lines = response_text.splitlines()
-            formatted_lines = []
-
-            for line in lines:
-                if re.match(r'^\d+\.', line):  # Numbered list (1., 2., etc.)
-                    formatted_lines.append(f"<p><strong>{line}</strong></p>")
-                elif line.strip().startswith('*'):  # Bullet points (* point)
-                    subpoint = line.strip().lstrip('*').strip()
-                    formatted_lines.append(f"<ul><li>{subpoint}</li></ul>")
-                else:
-                    formatted_lines.append(f"<p>{line}</p>")
-
-            return ''.join(formatted_lines)
-
-        # Step 1: Format Original Response
-        formatted_content = format_response(message_content)
-
-        # Step 2: Parse the formatted content using BeautifulSoup
-        soup = BeautifulSoup(formatted_content, "html.parser")
-
-        # Step 3: Translate only the text inside tags while preserving HTML
-        for tag in soup.find_all(string=True):
-            if tag.parent.name in ["strong", "li", "p"]:  # Translate only inside text-containing tags
-                try:
-                    translated_text = translator.translate(tag, dest=target_lang).text
-                except Exception:
-                    translated_text = tag  # fallback to original if translation fails
-                tag.replace_with(translated_text)
-
-        # Step 4: Return Translated and Formatted Response
-        translated_content = str(soup)
-
-        return jsonify({"translatedText": translated_content})
-
+        # Immediately return a friendly placeholder message
+        return jsonify({
+            "translatedText": "🌐 Translation service coming soon! Please stay tuned."
+        })
+    
     except Exception as e:
-        # Friendly fallback instead of raw error
-        return jsonify({"error": "⚠️ Translation service temporarily unavailable. Please try again later."}), 500
-    
-    
+        # Fallback for unexpected errors
+        return jsonify({
+            "error": "⚠️ Translation service temporarily unavailable. Please try again later."
+        }), 500
+
 @app.route('/api/clear_chat', methods=['POST'])
 def clear_chat():
     data = request.get_json()
