@@ -75,7 +75,7 @@ const Quiz = () => {
   ];
 
   useEffect(() => {
-    axios.get('/api/get_quiz')
+    axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/get_quiz`)
       .then((response) => {
         setQuestions(response.data.quiz);
       })
@@ -86,7 +86,7 @@ const Quiz = () => {
    
   }, []);
   useEffect(() => {
-    axios.get('/api/myaccount')
+    axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/myaccount`)
       .then((response) => {
         const fetchedUsername = response.data.username;
         const fetchedGameName = response.data.game_name || 'Justice Warrior'; // ✅ fallback if null
@@ -95,7 +95,7 @@ const Quiz = () => {
         setGameName(fetchedGameName);
         setTempGameName(fetchedGameName);
   
-        axios.get('/api/leaderboard')
+        axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/leaderboard`)
           .then((res) => {
             const sortedLeaderboard = res.data.leaderboard || [];
             setLeaderboard(sortedLeaderboard);
@@ -135,7 +135,7 @@ const Quiz = () => {
   
   
   const handleSubmit = useCallback(() => {
-    axios.post('/api/submit_quiz', { answers })
+    axios.post(`${process.env.REACT_APP_BACKEND_URL}/api/submit_quiz`, { answers })
       .then((response) => {
         console.log("Score received:", response.data.score); // ✅ Debugging log
         setScore(response.data.score);  
@@ -144,7 +144,7 @@ const Quiz = () => {
         setSubmitted(true);
   
         // ✅ Fetch leaderboard and update rank dynamically
-        axios.get('/api/leaderboard')
+        axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/leaderboard`)
           .then((res) => {
             const sortedLeaderboard = res.data.leaderboard || [];
             setLeaderboard(sortedLeaderboard);
@@ -211,13 +211,13 @@ const Quiz = () => {
   };
 
   const handleSaveGameName = () => {
-    axios.post('/api/update_game_name', { game_name: tempGameName })
+    axios.post(`${process.env.REACT_APP_BACKEND_URL}/api/update_game_name`, { game_name: tempGameName })
       .then(() => {
         setGameName(tempGameName);
         setEditingName(false);
   
         // ✅ Optional: Immediately refresh leaderboard
-        axios.get('/api/leaderboard')
+        axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/leaderboard`)
           .then((res) => {
             setLeaderboard(res.data.leaderboard || []);
           });
@@ -236,7 +236,7 @@ const Quiz = () => {
       setTimeLeft(900);
       
       // In a real app, you would fetch questions for the selected level
-      axios.get(`/api/get_quiz?level=${levelId}`)
+      axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/get_quiz?level=${levelId}`)
         .then((response) => {
           setQuestions(response.data.quiz);
         })

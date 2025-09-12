@@ -28,7 +28,7 @@ const ForgotPassword = () => {
         // No suggestion, proceed normally
         try {
           setIsLoading(true);
-          const response = await fetch('/api/forgot-password', {
+          const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/forgot-password`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email })
@@ -62,7 +62,7 @@ const handleResetCodeSubmit = async (e) => {
   setSuccessMessage('');
 
   try {
-    const response = await fetch('/api/verify-forgot-password-code', {
+    const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/verify-forgot-password-code`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, reset_code: trimmedResetCode })
@@ -96,7 +96,7 @@ const handleResetCodeSubmit = async (e) => {
     try {
       setErrorMessage('');
       setSuccessMessage('');
-      const response = await fetch('/api/reset-password', {
+      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/reset-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, new_password: newPassword }) // Consistent field name

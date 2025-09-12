@@ -152,7 +152,7 @@ const MyAccount = () => {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const accountRes = await axios.get('/api/myaccount');
+        const accountRes = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/myaccount`);
         setGameName(accountRes.data.game_name);
 
         const leaderboardRes = await axios.get('/api/leaderboard');
@@ -173,7 +173,7 @@ const MyAccount = () => {
 
     const fetchUserDetails = useCallback(async () => {
         try {
-            const response = await axios.get('/api/myaccount');
+            const response = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/myaccount`);
             setUserDetails(response.data);
             setQuizProgress(response.data.quiz_progress || {});
             setLoading(false);
@@ -210,7 +210,7 @@ const MyAccount = () => {
         formData.append('profile_picture', file);
 
         try {
-            const response = await axios.post('/api/update_profile_picture', formData, {
+            const response = await axios.post(`${process.env.REACT_APP_BACKEND_URL}/api/update_profile_picture`, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
                 onUploadProgress: (progressEvent) => {
                     const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
@@ -246,7 +246,7 @@ const MyAccount = () => {
         if (!result.isConfirmed) return;
       
         try {
-          const response = await axios.post('/api/remove_profile_picture');
+          const response = await axios.post(`${process.env.REACT_APP_BACKEND_URL}/api/remove_profile_picture`);
           if (response.data.message) {
             setUserDetails(prev => ({
               ...prev,
@@ -279,7 +279,7 @@ const MyAccount = () => {
         }
 
         try {
-            await axios.post('/api/update_profile', editField);
+            await axios.post(`${process.env.REACT_APP_BACKEND_URL}/api/update_profile`, editField);
             setUserDetails(prev => ({ ...prev, ...editField }));
             setIsEditing(false);
             setEditField({ username: '', password: '' });
@@ -294,7 +294,7 @@ const MyAccount = () => {
     useEffect(() => {
         const fetchFeedbackStatus = async () => {
             try {
-                const response = await axios.get(`/api/get_feedback_status?email=${userDetails.email}`);
+                const response = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/get_feedback_status?email=${userDetails.email}`);
                 if (response.data.submitted) {
                     setFeedbackSubmitted(true);  // Show "Thank you" message
                 }
@@ -315,7 +315,7 @@ const MyAccount = () => {
         }
     
         try {
-            await axios.post('/api/submit_feedback', {
+            await axios.post(`${process.env.REACT_APP_BACKEND_URL}/api/submit_feedback`, {
                 feedbackText,
                 // feedbackStars, // include stars in the submission
                 email: userDetails.email,
@@ -345,7 +345,7 @@ const MyAccount = () => {
         const fetchCollabStatus = async () => {
             try {
                 console.log("Fetching collab status for:", userDetails.email);
-                const response = await axios.get('/api/get_collab_status', {
+                const response = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/get_collab_status`, {
                     params: { email: userDetails.email } // ✅ passing email
                 });
                 console.log("Collab Status Response:", response.data);
@@ -425,7 +425,7 @@ const MyAccount = () => {
         setIsSubmittingCollab(true);
     
         try {
-            const response = await axios.post('/api/collab', {
+            const response = await axios.post(`${process.env.REACT_APP_BACKEND_URL}/api/collab`, {
                 name: data.name,
                 email: data.email,
                 collaborationType: data.collaborationType,
@@ -499,7 +499,7 @@ const MyAccount = () => {
         if (!confirmation.isConfirmed) return;
       
         try {
-          const response = await fetch("/api/clear_chat", {
+          const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/clear_chat`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ username: userDetails.username }),
@@ -548,7 +548,7 @@ const MyAccount = () => {
     const handleDeleteAccount = async () => {
         setIsDeleting(true); // Start loading
         try {
-            await axios.delete('/api/delete_account', { withCredentials: true });
+            await axios.delete(`${process.env.REACT_APP_BACKEND_URL}/api/delete_account`, { withCredentials: true });
     
             showNotification('Account deletion in progress...');
             
@@ -568,7 +568,7 @@ const MyAccount = () => {
 
     const handleLogout = async () => {
         try {
-          await fetch("/api/logout", {
+          await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/logout`, {
             method: "POST",
             credentials: "include", // important for session cookies
           });

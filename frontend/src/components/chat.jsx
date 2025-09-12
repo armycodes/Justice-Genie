@@ -122,7 +122,7 @@ const Chat = () => {
       speechSynthesis.speak(speech);
     } else {
       // 🔹 Call backend API for desktop TTS
-      const response = await fetch("/api/text-to-speech", {
+      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/text-to-speech`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: cleanText, rate: 150 }),
@@ -151,7 +151,7 @@ const stopSpeech = async () => {
     if (isMobile) {
       speechSynthesis.cancel();
     } else {
-      const response = await fetch("/api/stop-speech", { method: "POST" });
+      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/stop-speech`, { method: "POST" });
       const data = await response.json();
 
       if (!response.ok) {
@@ -192,7 +192,7 @@ const stopSpeech = async () => {
     setCancelled(false);
   
     try {
-      const response = await fetch("/api/translate", {
+      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/translate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messageId, targetLang, messageContent }),
@@ -244,7 +244,7 @@ const handleCancelTranslation = () => {
     const fetchMessages = async () => {
       try {
         setMessages([]); // Clear messages before fetching
-        const response = await fetch(`/api/get_chat?username=${username}`);
+        const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/get_chat?username=${username}`);
         const data = await response.json();
         setMessages(data.messages || []); // Setting messages after fetching
       } catch (error) {
@@ -271,7 +271,7 @@ const handleCancelTranslation = () => {
     setLoading(true);
   
     try {
-      const response = await fetch("/api/analyze_probability", {
+      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/analyze_probability`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ bot_response: botMessage }),
@@ -304,7 +304,7 @@ const handleCancelTranslation = () => {
   
   // Extracted MongoDB store function
   const storeMessageInMongoDB = async (graphMessage) => {
-    await fetch("/api/store_message", {
+    await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/store_message`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -427,7 +427,7 @@ useEffect(() => {
   const fetchUserData = async () => {
     try {
       setError(null);
-      const response = await fetch('/api/myaccount');
+      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/myaccount`);
       if (!response.ok) throw new Error('Failed to fetch user data');
       const data = await response.json();
       setUsername(data.username);
@@ -480,7 +480,7 @@ useEffect(() => {
     abortControllerRef.current = new AbortController();
   
     try {
-      const response = await fetch("/api/chat", {
+      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: input }),
@@ -502,7 +502,7 @@ useEffect(() => {
         setIsLoading(false);
   
         // ✅ Store both user & bot messages in MongoDB
-        await fetch("/api/store_message", {
+        await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/store_message`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -535,7 +535,7 @@ const handleStopRequest = () => {
     if (!messages.length) return alert('No messages to export.');
 
     try {
-      const response = await fetch('/api/export-pdf', {
+      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/export-pdf`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -643,7 +643,7 @@ const fallbackCopy = (text) => {
       className: "chat-modal-popup",
       onOk: async () => {
         try {
-          await fetch("/api/logout", {
+          await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/logout`, {
             method: "POST",
             credentials: "include", // Important for cookies
           });

@@ -37,7 +37,7 @@ const LawPDF = () => {
       setLoading(true);
       setError(null);
       const response = await axios.get(
-        `/api/books${selectedCategory !== 'all' ? `?category=${selectedCategory}` : ''}`
+        `${process.env.REACT_APP_BACKEND_URL}/api/books${selectedCategory !== 'all' ? `?category=${selectedCategory}` : ''}`
       );
       console.log('Fetched Books:', response.data); // 🔍 Debugging log
       setBooks(response.data);
@@ -60,7 +60,7 @@ const LawPDF = () => {
 const updateBookStats = async (bookId, action) => {
   if (!bookId) return;
   try {
-    await axios.get(`/api/books/${bookId}/${action}`);
+    await axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/books/${bookId}/${action}`);
   } catch (err) {
     console.error(`Failed to update ${action} count:`, err);
   }
