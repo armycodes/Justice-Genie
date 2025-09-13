@@ -112,8 +112,8 @@ def get_db():
         cluster  = os.getenv("MONGO_CLUSTER")
         uri = f"mongodb+srv://{username}:{password}@{cluster}/?retryWrites=true&w=majority&appName=Cluster0"
 
-        # g.client = MongoClient(uri)
-        g.client = MongoClient("mongodb://localhost:27017/")
+        g.client = MongoClient(uri)
+        # g.client = MongoClient("mongodb://localhost:27017/")
         g.db = g.client["law_chatbot"]
     return g.db
 
