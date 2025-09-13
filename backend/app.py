@@ -139,35 +139,49 @@ def stop_speech():
 def speech_to_text():
     return jsonify({'message': '🎤 Speech-to-Text is coming soon in production!'}), 200
     
+# -------------------------------
+# Helper to serialize MongoDB book
+# -------------------------------
 def serialize_book(book):
-    """Serialize MongoDB book document."""
-    book['id'] = str(book['_id'])
-    del book['_id']
-    return book
+    """Return a copy of book with 'id' instead of '_id'."""
+    book_copy = dict(book)  # Avoid mutating original
+    book_copy['id'] = str(book_copy['_id'])
+    del book_copy['_id']
+    return book_copy
 
+# -------------------------------
+# Fetch books endpoint
+# -------------------------------
 @app.route('/api/books')
 def get_books():
     """Fetch books with optional category filter."""
     category = request.args.get('category', 'all')
     query = {} if category == 'all' else {'category': category}
-    
-    books = list(books_collection.find(query))  # ✅ add ()
+
+    books = list(books_collection.find(query))
     serialized_books = [serialize_book(book) for book in books]
     return jsonify(serialized_books)
 
-
+# -------------------------------
+# Serve book endpoint
+# -------------------------------
 @app.route('/api/books/<book_id>/<action>', methods=['GET'])
 def serve_book(book_id, action):
     """Serve book for viewing or downloading (via Cloudinary)."""
-    book = books_collection.find_one({'_id': ObjectId(book_id)})  # ✅ add ()
+    try:
+        oid = ObjectId(book_id)
+    except:
+        return jsonify({'error': 'Invalid book ID'}), 400
+
+    book = books_collection.find_one({'_id': oid})
     if not book:
         return jsonify({'error': 'Book not found'}), 404
 
-    file_url = book.get('file_path')  # Now a Cloudinary URL
+    file_url = book.get('file_path')
     if not file_url:
         return jsonify({'error': 'File path not specified'}), 400
 
-    # Update stats in DB
+    # Update stats
     update_fields = {'$set': {'updated_at': datetime.utcnow()}}
     if action == 'download':
         update_fields['$inc'] = {'downloads': 1}
@@ -176,12 +190,10 @@ def serve_book(book_id, action):
     else:
         return jsonify({'error': 'Invalid action'}), 400
 
-    books_collection.update_one({'_id': ObjectId(book_id)}, update_fields)  # ✅ add ()
+    books_collection.update_one({'_id': oid}, update_fields)
 
-    # Just redirect user to Cloudinary file
+    # Redirect user to Cloudinary URL
     return redirect(file_url)
-
-
 
 
 # @app.route("/api/translate", methods=["POST"])
