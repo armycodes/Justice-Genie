@@ -48,6 +48,21 @@ from googletrans import Translator
 # load environment variables from .env file
 load_dotenv()
 
+
+
+app = Flask(__name__)
+
+CORS(
+    app,
+    supports_credentials=True,
+    origins=[
+        "http://localhost:3000",  # local dev
+        "https://justice-genie-mu.vercel.app"  # deployed frontend
+    ]
+)
+
+app.secret_key = 'supersecretkey'
+
 #---- Cloudinary configuration ----#
 cloudinary.config(
     cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
@@ -71,13 +86,6 @@ EMAIL_PASS = os.getenv("JG_PASSWORD")
 # Get API key from environment
 api_key = os.getenv("GEMINI_API_KEY")
     
-app = Flask(__name__, static_folder='frontend/build/static') 
-CORS(
-    app,
-    supports_credentials=True,
-    origins=["http://localhost:3000"]  # CRA frontend
-)
-app.secret_key = 'supersecretkey'
 
 # Fix headers if behind a proxy (safe to add, good practice)
 # app.wsgi_app = ProxyFix(app.wsgi_app)
@@ -104,7 +112,8 @@ def get_db():
         cluster  = os.getenv("MONGO_CLUSTER")
         uri = f"mongodb+srv://{username}:{password}@{cluster}/?retryWrites=true&w=majority&appName=Cluster0"
 
-        g.client = MongoClient(uri)
+        # g.client = MongoClient(uri)
+        g.client = MongoClient("mongodb://localhost:27017/")
         g.db = g.client["law_chatbot"]
     return g.db
 
