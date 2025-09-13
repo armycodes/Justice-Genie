@@ -37,8 +37,10 @@ const LawPDF = () => {
       setLoading(true);
       setError(null);
       const response = await axios.get(
-        `${process.env.REACT_APP_BACKEND_URL}/api/books${selectedCategory !== 'all' ? `?category=${selectedCategory}` : ''}`
+        `${process.env.REACT_APP_BACKEND_URL}/api/books${selectedCategory !== 'all' ? `?category=${selectedCategory}` : ''}`,
+        { withCredentials: true } // ✅ important for production
       );
+
       console.log('Fetched Books:', response.data); // 🔍 Debugging log
       setBooks(response.data);
     } catch (err) {
