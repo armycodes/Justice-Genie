@@ -52,6 +52,10 @@ load_dotenv()
 
 app = Flask(__name__)
 
+# Important session settings
+app.config['SESSION_COOKIE_SAMESITE'] = 'None'
+app.config['SESSION_COOKIE_SECURE'] = True  # must be HTTPS
+
 CORS(
     app,
     supports_credentials=True,
