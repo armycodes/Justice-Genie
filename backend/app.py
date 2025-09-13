@@ -1268,21 +1268,27 @@ def update_profile_picture():
 
         # Remove old profile pic from Cloudinary if exists
         user = users_collection.find_one({'username': username})
-        old_pic = user.get('profile_picture')
-        if old_pic and "res.cloudinary.com" in old_pic:
-            public_id = '/'.join(old_pic.split('/')[-2:]).split('.')[0]
-            cloudinary.uploader.destroy(f'profile_pics/{public_id}')
+        old_pic_id = user.get('profile_picture_id')
+        if old_pic_id:
+            cloudinary.uploader.destroy(old_pic_id)
 
-        # Save new Cloudinary URL in DB
+        # Save new Cloudinary URL + public_id in DB
         users_collection.update_one(
             {'username': username},
-            {'$set': {'profile_picture': result['secure_url']}}
+            {'$set': {
+                'profile_picture': result['secure_url'],
+                'profile_picture_id': result['public_id']
+            }}
         )
 
-        return jsonify({'message': 'Profile picture updated!', 'file_path': result['secure_url']})
+        return jsonify({
+            'message': 'Profile picture updated!',
+            'file_path': result['secure_url']
+        })
 
     except Exception as e:
         return jsonify({'message': 'Error uploading image', 'error': str(e)}), 500
+
 
 # ---- Remove Profile Picture ---- #
 @app.route('/api/remove_profile_picture', methods=['POST'])
@@ -1295,16 +1301,15 @@ def remove_profile_picture():
     if not user:
         return jsonify({'message': 'User not found'}), 404
 
-    profile_pic_url = user.get('profile_picture')
-
     try:
-        if profile_pic_url and "res.cloudinary.com" in profile_pic_url:
-            public_id = '/'.join(profile_pic_url.split('/')[-2:]).split('.')[0]
-            cloudinary.uploader.destroy(f"profile_pics/{public_id}")
+        old_pic_id = user.get('profile_picture_id')
+        if old_pic_id:
+            cloudinary.uploader.destroy(old_pic_id)
 
+        # Remove both fields from DB
         users_collection.update_one(
             {'username': username},
-            {'$unset': {'profile_picture': ""}}
+            {'$unset': {'profile_picture': "", 'profile_picture_id': ""}}
         )
 
         return jsonify({'message': 'Profile picture removed successfully!'})
