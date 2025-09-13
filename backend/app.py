@@ -1377,7 +1377,7 @@ def submit_quiz():
 
     # Only update if the new score is higher
     if score > current_high_score:
-        users_collection().update_one(   # ✅ added ()
+        users_collection.update_one(   # ✅ added ()
             {'username': username},
             {'$set': {
                 'quiz_marks': score,
