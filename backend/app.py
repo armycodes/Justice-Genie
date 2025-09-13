@@ -105,47 +105,21 @@ GUIDANCE = (
     "Include any relevant IPC sections, acts, and legal precedents."
 )
 
-def get_db():
-    if "db" not in g:
-        username = os.getenv("MONGO_USER")
-        password = quote_plus(os.getenv("MONGO_PASS"))
-        cluster  = os.getenv("MONGO_CLUSTER")
-        uri = f"mongodb+srv://{username}:{password}@{cluster}/?retryWrites=true&w=majority&appName=Cluster0"
+username = os.getenv("MONGO_USER")
+password = quote_plus(os.getenv("MONGO_PASS"))
+cluster  = os.getenv("MONGO_CLUSTER")
 
-        g.client = MongoClient(uri)
-        # g.client = MongoClient("mongodb://localhost:27017/")
-        g.db = g.client["law_chatbot"]
-    return g.db
+MONGO_URI = f"mongodb+srv://{username}:{password}@{cluster}/?retryWrites=true&w=majority&appName=Cluster0"
+client = MongoClient(MONGO_URI)   # single global client
+db = client["law_chatbot"]
 
-# Lazy collections (no global client created before fork)
-def users_collection():
-    return get_db()["users"]
-
-def feedback_collection():
-    return get_db()["feedback"]
-
-def quizzquestions_collection():
-    return get_db()["quizzquestions"]
-
-def books_collection():
-    return get_db()["books"]
-
-def collab_collection():
-    return get_db()["collaborations"]
-
-def leaderboard_collection():
-    return get_db()["leaderboard"]
-
-def chats_collection():
-    return get_db()["chats"]
-
-# Auto-close connection
-def init_app(app):
-    @app.teardown_appcontext
-    def close_db(error):
-        client = g.pop("client", None)
-        if client is not None:
-            client.close()
+users_collection = db["users"]
+feedback_collection = db["feedback"]
+quizzquestions_collection = db["quizzquestions"]
+books_collection = db["books"]
+collab_collection = db["collaborations"]
+leaderboard_collection = db["leaderboard"]
+chats_collection = db["chats"]
 
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
@@ -173,7 +147,7 @@ def get_books():
     category = request.args.get('category', 'all')
     query = {} if category == 'all' else {'category': category}
     
-    books = list(books_collection().find(query))  # ✅ add ()
+    books = list(books_collection.find(query))  # ✅ add ()
     serialized_books = [serialize_book(book) for book in books]
     return jsonify(serialized_books)
 
@@ -181,7 +155,7 @@ def get_books():
 @app.route('/api/books/<book_id>/<action>', methods=['GET'])
 def serve_book(book_id, action):
     """Serve book for viewing or downloading (via Cloudinary)."""
-    book = books_collection().find_one({'_id': ObjectId(book_id)})  # ✅ add ()
+    book = books_collection.find_one({'_id': ObjectId(book_id)})  # ✅ add ()
     if not book:
         return jsonify({'error': 'Book not found'}), 404
 
@@ -198,7 +172,7 @@ def serve_book(book_id, action):
     else:
         return jsonify({'error': 'Invalid action'}), 400
 
-    books_collection().update_one({'_id': ObjectId(book_id)}, update_fields)  # ✅ add ()
+    books_collection.update_one({'_id': ObjectId(book_id)}, update_fields)  # ✅ add ()
 
     # Just redirect user to Cloudinary file
     return redirect(file_url)
@@ -286,7 +260,7 @@ def clear_chat():
         return jsonify({"error": "Username is required"}), 400
 
     # ✅ Use helper
-    result = chats_collection().delete_many({"username": username})
+    result = chats_collection.delete_many({"username": username})
 
     if result.deleted_count > 0:
         return jsonify({"message": "Chat history cleared successfully"}), 200
@@ -304,24 +278,24 @@ def store_message():
             return jsonify({"error": "Username and a list of messages are required"}), 400
 
         # Find user ID
-        user = users_collection().find_one({"username": username})  # ✅ add ()
+        user = users_collection.find_one({"username": username})  # ✅ add ()
         if not user:
             return jsonify({"error": "User not found"}), 404
 
         user_id = str(user["_id"])
 
         # Check if user already has a chat history
-        user_chat = chats_collection().find_one({"user_id": user_id})  # ✅ add ()
+        user_chat = chats_collection.find_one({"user_id": user_id})  # ✅ add ()
 
         if user_chat:
             # Append new messages to existing chat history
-            chats_collection().update_one(   # ✅ add ()
+            chats_collection.update_one(   # ✅ add ()
                 {"user_id": user_id},
                 {"$push": {"messages": {"$each": messages}}}  # Append multiple messages
             )
         else:
             # Create a new chat entry
-            chats_collection().insert_one({   # ✅ add ()
+            chats_collection.insert_one({   # ✅ add ()
                 "user_id": user_id,
                 "username": username,
                 "messages": messages  # Store all messages
@@ -343,14 +317,14 @@ def get_chat():
 
     try:
         # Find user ID
-        user = users_collection().find_one({"username": username})  # ✅ add ()
+        user = users_collection.find_one({"username": username})  # ✅ add ()
         if not user:
             return jsonify({"error": "User not found"}), 404
 
         user_id = str(user["_id"])
 
         # Fetch chat history
-        user_chat = chats_collection().find_one({"user_id": user_id})  # ✅ add ()
+        user_chat = chats_collection.find_one({"user_id": user_id})  # ✅ add ()
 
         if not user_chat:
             return jsonify({"messages": []})  # Return empty if no chat found
@@ -367,25 +341,25 @@ def submit_feedback():
     feedback_stars = data.get('feedbackStars', [])  # New: get ratings array
     email = data.get('email')
 
-    user = users_collection().find_one({'email': email})  # ✅ add ()
+    user = users_collection.find_one({'email': email})  # ✅ add ()
 
     if user and user.get('feedback_submitted', False):
         return jsonify({"message": "You have already submitted feedback."}), 400
 
     if user and 'feedback_submitted' not in user:
-        users_collection().update_one(   # ✅ add ()
+        users_collection.update_one(   # ✅ add ()
             {'email': email},
             {'$set': {'feedback_submitted': False}}
         )
 
-    feedback_collection().insert_one({   # ✅ add ()
+    feedback_collection.insert_one({   # ✅ add ()
         'email': email,
         'feedback_text': feedback_text,
         'feedback_stars': feedback_stars,  # ⭐ Save the star ratings
         'submitted_at': datetime.utcnow()
     })
 
-    users_collection().update_one(   # ✅ add ()
+    users_collection.update_one(   # ✅ add ()
         {'email': email},
         {'$set': {'feedback_submitted': True}}
     )
@@ -398,7 +372,7 @@ def get_feedback_status():
     email = request.args.get('email')  # Assuming the user is logged in and we get their email as a query parameter
 
     # Find the user in the database
-    user = users_collection().find_one({'email': email})
+    user = users_collection.find_one({'email': email})
 
     if user:
         feedback_submitted = user.get('feedback_submitted', False)
@@ -425,7 +399,7 @@ def collab():
         return jsonify({'error': 'Unauthorized. Please log in.'}), 401
 
     # Check if the logged-in user has already submitted a collaboration request
-    existing_collab = collab_collection().find_one({"submitted_by": username})  # ✅ add ()
+    existing_collab = collab_collection.find_one({"submitted_by": username})  # ✅ add ()
     if existing_collab:
         return jsonify({'error': 'You have already submitted a collaboration request.'}), 400
 
@@ -444,7 +418,7 @@ def collab():
     }
 
     try:
-        collab_collection().insert_one(collab_entry)  # ✅ add ()
+        collab_collection.insert_one(collab_entry)  # ✅ add ()
     except Exception as e:
         print(f"Error inserting into MongoDB: {e}")
         return jsonify({'error': 'Failed to store collaboration data'}), 500
@@ -570,7 +544,7 @@ def get_collab_status():
         return jsonify({'error': 'Unauthorized. Please log in.'}), 401
 
     # Check if this specific user has submitted a request
-    collab_submission = collab_collection().find_one({"submitted_by": username})
+    collab_submission = collab_collection.find_one({"submitted_by": username})
 
     return jsonify({'submitted': bool(collab_submission)}), 200
 
@@ -733,12 +707,12 @@ def register():
     #      return jsonify({'error': 'Invalid or non-existent email address.'}), 400
     
     # Check if the username already exists
-    existing_user = users_collection().find_one({'username': username})
+    existing_user = users_collection.find_one({'username': username})
     if existing_user:
         return jsonify({'error': 'Username already exists. Please choose a different username.'}), 400
 
     # Check if the email already exists
-    existing_email = users_collection().find_one({'email': email})
+    existing_email = users_collection.find_one({'email': email})
     if existing_email:
         return jsonify({'error': 'Email already registered. Please log in or use a different email.'}), 400
 
@@ -781,7 +755,7 @@ def verify_code():
         # Move user data from temporary storage to the database
         user_data = unverified_users.pop(email)  # Remove from temporary storage
 
-        users_collection().insert_one({   # ✅ add ()
+        users_collection.insert_one({   # ✅ add ()
             'username': user_data['username'],
             'email': user_data['email'],
             'phone': user_data['phone'],
@@ -1034,7 +1008,7 @@ def resend_verification_code():
         return jsonify({'message': 'Verification code resent. Please check your email.'}), 200
 
     # If user is already in the database, they should not need verification again
-    if users_collection().find_one({'email': email, 'verified': True}):
+    if users_collection.find_one({'email': email, 'verified': True}):
         return jsonify({'error': 'User already verified! Please log in.'}), 400
 
     return jsonify({'error': 'User not found or verification expired. Please register again.'}), 400
@@ -1050,7 +1024,7 @@ def forgot_password():
     if not re.match(email_regex, email):
         return jsonify({'error': 'Invalid email format. Please enter a valid email address.'}), 400
 
-    user = users_collection().find_one({'email': email})
+    user = users_collection.find_one({'email': email})
 
     if not user:
         # Email not found in the database
@@ -1058,7 +1032,7 @@ def forgot_password():
 
     reset_code = str(random.randint(100000, 999999))  # Generate reset code
     # Store the reset code in the database
-    users_collection().update_one({'email': email}, {'$set': {'reset_code': reset_code}})
+    users_collection.update_one({'email': email}, {'$set': {'reset_code': reset_code}})
 
     # Send reset code email
     send_forgot_password_email(email, reset_code)
@@ -1148,7 +1122,7 @@ def verify_forgot_password_code():
     email = data.get('email')
     entered_code = str(data.get('reset_code')).strip()  # Convert entered code to string and strip any spaces
 
-    user = users_collection().find_one({'email': email})
+    user = users_collection.find_one({'email': email})
 
     if not user:
         return jsonify({'error': 'User not found'}), 400
@@ -1172,7 +1146,7 @@ def reset_password():
     email = data.get('email')
     new_password = data.get('new_password')
 
-    user = users_collection().find_one({'email': email})
+    user = users_collection.find_one({'email': email})
 
     if not user:
         return jsonify({'error': 'User not found'}), 400
@@ -1181,10 +1155,10 @@ def reset_password():
     hashed_password = generate_password_hash(new_password)
 
     # Update the password in the database
-    users_collection().update_one({'email': email}, {'$set': {'password': hashed_password}})
+    users_collection.update_one({'email': email}, {'$set': {'password': hashed_password}})
 
     # Remove the reset code after password change
-    users_collection().update_one({'email': email}, {'$unset': {'reset_code': ""}})
+    users_collection.update_one({'email': email}, {'$unset': {'reset_code': ""}})
 
     return jsonify({'message': 'Password successfully reset. You can now log in with your new password.'})
 
@@ -1195,7 +1169,7 @@ def login():
     username_or_email = data.get('username')  # still receiving as 'username' from frontend
     password = data.get('password')
 
-    user = users_collection().find_one({
+    user = users_collection.find_one({
         "$or": [
             {"username": username_or_email},
             {"email": username_or_email}
@@ -1277,14 +1251,14 @@ def update_profile_picture():
         print("Upload result:", result)
 
         # Remove old profile pic from Cloudinary if exists
-        user = users_collection().find_one({'username': username})
+        user = users_collection.find_one({'username': username})
         old_pic = user.get('profile_picture')
         if old_pic and "res.cloudinary.com" in old_pic:
             public_id = '/'.join(old_pic.split('/')[-2:]).split('.')[0]
             cloudinary.uploader.destroy(f'profile_pics/{public_id}')
 
         # Save new Cloudinary URL in DB
-        users_collection().update_one(
+        users_collection.update_one(
             {'username': username},
             {'$set': {'profile_picture': result['secure_url']}}
         )
@@ -1301,7 +1275,7 @@ def remove_profile_picture():
     if not username:
         return jsonify({'message': 'Unauthorized'}), 401
 
-    user = users_collection().find_one({'username': username})
+    user = users_collection.find_one({'username': username})
     if not user:
         return jsonify({'message': 'User not found'}), 404
 
@@ -1312,7 +1286,7 @@ def remove_profile_picture():
             public_id = '/'.join(profile_pic_url.split('/')[-2:]).split('.')[0]
             cloudinary.uploader.destroy(f"profile_pics/{public_id}")
 
-        users_collection().update_one(
+        users_collection.update_one(
             {'username': username},
             {'$unset': {'profile_picture': ""}}
         )
@@ -1326,7 +1300,7 @@ def remove_profile_picture():
 # Quiz related functions
 @app.route('/api/get_quiz', methods=['GET'])
 def get_quiz():
-    questions = list(quizzquestions_collection().aggregate([
+    questions = list(quizzquestions_collection.aggregate([
         {"$match": {"level": 1}},
         {"$sample": {"size": 15}}
     ]))
@@ -1354,7 +1328,7 @@ def submit_quiz():
         return jsonify({'error': 'Unauthorized'}), 401
 
     user_answers = data.get('answers')
-    user = users_collection().find_one({'username': username})  # ✅ added ()
+    user = users_collection.find_one({'username': username})  # ✅ added ()
 
     if not user:
         return jsonify({'error': 'User not found'}), 404
@@ -1368,7 +1342,7 @@ def submit_quiz():
 
     # Loop through user's answers & calculate score
     for question, user_answer in user_answers.items():
-        quiz_question = quizzquestions_collection().find_one({"question": question})  # ✅ added ()
+        quiz_question = quizzquestions_collection.find_one({"question": question})  # ✅ added ()
         correct_option = quiz_question['correct_answer']
         explanation = quiz_question.get('explanation', 'No explanation provided.')
 
@@ -1410,7 +1384,7 @@ def submit_quiz():
         )
 
         # ✅ Update Leaderboard Collection
-        leaderboard_collection().update_one(   # ✅ added ()
+        leaderboard_collection.update_one(   
             {'username': username},
             {'$set': {'score': score}},  # Update only if it's a new high score
             upsert=True  # If user doesn't exist, insert them
@@ -1430,7 +1404,7 @@ def submit_quiz():
 def get_leaderboard():
     try:
         # Fetch leaderboard data from leaderboard_collection
-        users = list(leaderboard_collection().find({}, {'username': 1, 'score': 1, 'game_name': 1, '_id': 0}))
+        users = list(leaderboard_collection.find({}, {'username': 1, 'score': 1, 'game_name': 1, '_id': 0}))
 
 
         # Sort users by score in descending order
@@ -1462,7 +1436,7 @@ def myaccount():
     if 'username' not in session:
         return jsonify({'error': 'Unauthorized'}), 401
 
-    user = users_collection().find_one({'username': session['username']})
+    user = users_collection.find_one({'username': session['username']})
     if user:
         quiz_progress = {
             'marks': user.get('quiz_marks', 0),
@@ -1491,13 +1465,13 @@ def update_game_name():
         return jsonify({'error': 'Game name cannot be empty'}), 400
 
     # ✅ Update in users collection
-    users_collection().update_one(
+    users_collection.update_one(
         {'username': session['username']},
         {'$set': {'game_name': game_name}}
     )
 
     # ✅ Also update in leaderboard collection
-    leaderboard_collection().update_one(
+    leaderboard_collection.update_one(
         {'username': session['username']},
         {'$set': {'game_name': game_name}}
     )
@@ -1736,7 +1710,7 @@ def delete_account():
         return jsonify({'error': 'Unauthorized. Please log in.'}), 401
 
     username = session['username']
-    user = users_collection().find_one({'username': username})  
+    user = users_collection.find_one({'username': username})  
 
     if not user:
         return jsonify({'error': 'User not found.'}), 404
@@ -1745,7 +1719,7 @@ def delete_account():
     print(f"Deleting user: {username} (Email: {user_email})")
 
     # 🔥 Fetch leaderboard to calculate user's rank before deletion
-    leaderboard = list(leaderboard_collection().find().sort("score", -1))
+    leaderboard = list(leaderboard_collection.find().sort("score", -1))
     rank = None
     user_score = None
 
@@ -1756,23 +1730,23 @@ def delete_account():
             break
 
     # ✅ Delete user from MongoDB
-    user_deletion_result = users_collection().delete_one({'username': username})
+    user_deletion_result = users_collection.delete_one({'username': username})
     print(f"User Deletion Status: {user_deletion_result.deleted_count}")  
 
     # ✅ Delete user from leaderboard
-    leaderboard_deletion_result = leaderboard_collection().delete_one({'username': username})
+    leaderboard_deletion_result = leaderboard_collection.delete_one({'username': username})
     print(f"Leaderboard Deletion Status: {leaderboard_deletion_result.deleted_count}")  
 
     # ✅ Delete all collabs where 'submitted_by' matches the username
-    collab_deletion_result = collab_collection().delete_many({'submitted_by': username})
+    collab_deletion_result = collab_collection.delete_many({'submitted_by': username})
     print(f"Collab Deletion Status: {collab_deletion_result.deleted_count}") 
     
      # ✅ Delete user chat history
-    chat_history_deletion_result = chats_collection().delete_many({'username': username})
+    chat_history_deletion_result = chats_collection.delete_many({'username': username})
     print(f"Chat History Deletion Status: {chat_history_deletion_result.deleted_count}")  
 
     # Confirm remaining collabs (if other users submitted with the same email)
-    remaining_collabs = list(collab_collection().find({'email': user_email}))
+    remaining_collabs = list(collab_collection.find({'email': user_email}))
     print(f"Remaining collabs with email {user_email}: {remaining_collabs}")  
 
     
@@ -1867,7 +1841,7 @@ def get_users():
     if session.get('role') != 'admin':
         return jsonify({'error': 'Unauthorized'}), 403
 
-    users = users_collection().find({'role': 'user'})
+    users = users_collection.find({'role': 'user'})
     user_list = []
 
     for user in users:
@@ -1895,7 +1869,7 @@ def get_collab_requests():
         return jsonify({'error': 'Unauthorized'}), 403
 
     try:
-        collabs = list(collab_collection().find({}, {'_id': 0})) 
+        collabs = list(collab_collection.find({}, {'_id': 0})) 
         return jsonify(collabs), 200
     except Exception as e:
         print(f"Error fetching collab data: {e}")
@@ -1909,7 +1883,7 @@ def get_feedbacks():
 
     try:
         # Fetch all feedbacks, excluding the '_id' field for simplicity (you can include it if needed)
-        feedbacks = list(feedback_collection().find({}, {'_id': 0})) 
+        feedbacks = list(feedback_collection.find({}, {'_id': 0})) 
         
         return jsonify(feedbacks), 200
     except Exception as e:
@@ -1925,7 +1899,7 @@ def get_quiz_participants():
         if session.get('role') != 'admin':
             return jsonify({'error': 'Unauthorized'}), 403
 
-        leaderboard_data = list(leaderboard_collection().find({}, {'_id': 0}))
+        leaderboard_data = list(leaderboard_collection.find({}, {'_id': 0}))
 
         # Sort by score descending
         leaderboard_data.sort(key=lambda x: x.get('score', 0), reverse=True)
@@ -1943,7 +1917,7 @@ def get_quiz_participants():
         usernames = [entry['username'] for entry in leaderboard_data]
         user_email_map = {
             user['username']: user.get('email', 'Not available')
-            for user in users_collection().find(
+            for user in users_collection.find(
                 {'username': {'$in': usernames}},
                 {'username': 1, 'email': 1, '_id': 0}
             )
@@ -1968,7 +1942,7 @@ def remove_user():
     data = request.get_json()
     email = data.get('email')
 
-    user = users_collection().find_one({'email': email})
+    user = users_collection.find_one({'email': email})
     if not user:
         return jsonify({'success': False, 'message': 'User not found'}), 404
 
@@ -1982,7 +1956,7 @@ def remove_user():
 
     # Lock for 5 minutes (store in UTC)
     new_lock_until = current_time_utc + timedelta(minutes=5)
-    users_collection().update_one({'email': email}, {'$set': {'account_locked_until': new_lock_until}})
+    users_collection.update_one({'email': email}, {'$set': {'account_locked_until': new_lock_until}})
 
     # Convert UTC to IST for email notification
     india_timezone = timezone('Asia/Kolkata')
@@ -2000,7 +1974,7 @@ def remove_user():
 @app.route('/api/user/lock-status', methods=['GET'])
 def get_lock_status():
     email = request.args.get('email')
-    user = users_collection().find_one({'email': email})
+    user = users_collection.find_one({'email': email})
     
     if not user:
         return jsonify({'success': False, 'message': 'User not found'}), 404
@@ -2011,7 +1985,7 @@ def get_lock_status():
     if lock_until:
         if lock_until < datetime.utcnow():
             # If the lock time is expired, unlock the user by removing the lock
-            users_collection().update_one({'email': email}, {'$unset': {'account_locked_until': 1}})
+            users_collection.update_one({'email': email}, {'$unset': {'account_locked_until': 1}})
             return jsonify({'success': True, 'message': 'User unlocked', 'lock_until': None}), 200
         return jsonify({'success': True, 'lock_until': lock_until.isoformat()}), 200
     
