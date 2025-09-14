@@ -511,7 +511,7 @@ def collab():
                                     <table style="width: 100%; margin: 30px 0;">
                                         <tr>
                                             <td align="center">
-                                                <a href="https://justicegenie.com" class="button">Visit Our Website</a>
+                                                <a href="https://justice-genie-mu.vercel.app" class="button">Visit Our Website</a>
                                             </td>
                                         </tr>
                                     </table>
@@ -930,7 +930,7 @@ def send_welcome_email(email, username):
                                     <!-- CTA Button -->
                                     <tr>
                                         <td style="padding: 20px 0 40px; text-align: center;">
-                                            <a href="https://justicegenie.com/login" 
+                                            <a href="https://justice-genie-mu.vercel.app/login" 
                                                 style="display: inline-block; background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%); color: white; padding: 16px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 18px;">
                                                 Start Your Journey Now ⚖️
                                             </a>
@@ -1671,7 +1671,7 @@ def send_goodbye_email(email, username, score=None, rank=None):
                     <table width="100%" cellpadding="0" cellspacing="0">
                         <tr>
                             <td style="text-align: center; padding: 40px 0;">
-                                <a href="http://JusticeGenie.com/register" 
+                                <a href="https://Justice-Genie-mu.vercel.app/register" 
                                     style="display: inline-block; background: #ffffff; color: #0369a1; padding: 16px 32px; 
                                     text-decoration: none; border-radius: 8px; font-weight: 600; transition: all 0.3s ease; 
                                     box-shadow: 0 4px 10px rgba(0, 122, 255, 0.2); border: 2px solid #38bdf8;">
