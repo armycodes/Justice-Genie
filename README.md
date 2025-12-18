@@ -1,0 +1,1 @@
+This is Collaborative Project which was developed and deployed by Siri Mahalaxmi Vemula and Yaganti Subhash. At present the Project repository is created in Subhash Yaganti github profile. This is to note that any developers or HR executives to understand that both people own this project and did a significant contribution to this project.
