@@ -64,7 +64,7 @@ This project is a **jointly developed academic project**.
 ### 👩‍💻 Co-Creator
 **Vemula Siri Mahalaxmi**  
 - AI Logic & Prompt Engineering  
-- Backend (Flask + Gemini Integration)  
+- Backend (Flask + Gemini Integration+ API Integration)  
 - System Design & Documentation  
 - Feature Architecture & Flow  
 
@@ -82,11 +82,6 @@ This project is a **jointly developed academic project**.
 
 ---
 
-## 🎯 Resume-Ready Project Description
-
-**Justice Genie 2.0** is a Generative AI–based legal advisory platform built using **Flask, React, MongoDB, and Google Gemini AI**, offering multilingual, voice-enabled legal assistance aligned with Indian law. The system analyzes legal queries using NLP, generates AI-driven responses, visualizes case outcome probabilities, and enhances legal literacy through quizzes and downloadable resources.
-
----
 
 ## 🧑‍💼 Recruiter-Friendly Summary
 
